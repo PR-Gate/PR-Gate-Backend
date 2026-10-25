@@ -1,0 +1,14 @@
+spring:
+  application:
+    name: projects-service
+  datasource:
+    url: ${DB_URL:jdbc:postgresql://localhost:5432/prgate_projects}
+    username: ${DB_USERNAME}
+    password: ${DB_PASSWORD}
+  jpa:
+    open-in-view: false
+    hibernate:
+      ddl-auto: validate
+  flyway:
+    enabled: true
+    locations: classpath:db/migration

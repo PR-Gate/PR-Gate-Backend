@@ -11,6 +11,9 @@ public interface CourseEnrollmentRepository {
 
     Optional<CourseEnrollment> findById(CourseEnrollmentId enrollmentId);
 
+    /** Returns only APPROVED admission for this course and student. */
+    Optional<CourseEnrollment> findApproved(CourseId courseId, StudentId studentId);
+
     /** Rejected history does not block a new request. */
     boolean existsPendingOrApproved(CourseId courseId, StudentId studentId);
 

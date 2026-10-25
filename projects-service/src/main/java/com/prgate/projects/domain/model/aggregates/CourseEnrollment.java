@@ -34,6 +34,22 @@ public final class CourseEnrollment {
         return new CourseEnrollment(id, courseId, studentId, requestedAt);
     }
 
+    /** Restores validated persisted state without resolving the request again. */
+    public static CourseEnrollment reconstitute(CourseEnrollmentId id, CourseId courseId, StudentId studentId,
+                                                Instant requestedAt, EnrollmentStatus status, Instant resolvedAt) {
+        CourseEnrollment enrollment = new CourseEnrollment(id, courseId, studentId, requestedAt);
+        requireValue(status, "Enrollment status is required");
+        if (status == EnrollmentStatus.PENDING) {
+            if (resolvedAt != null) {
+                throw new IllegalArgumentException("Pending enrollments must not have a resolution time");
+            }
+        } else {
+            enrollment.resolvedAt = enrollment.validateResolutionTime(resolvedAt);
+        }
+        enrollment.status = status;
+        return enrollment;
+    }
+
     public void approve(Instant resolvedAt) {
         resolve(EnrollmentStatus.APPROVED, resolvedAt);
     }
@@ -70,12 +86,17 @@ public final class CourseEnrollment {
         if (status != EnrollmentStatus.PENDING) {
             throw new IllegalStateException("Only pending enrollment requests can be resolved");
         }
+        Instant validatedTime = validateResolutionTime(decisionTime);
+        this.status = decision;
+        this.resolvedAt = validatedTime;
+    }
+
+    private Instant validateResolutionTime(Instant decisionTime) {
         requireValue(decisionTime, "Resolution time is required");
         if (decisionTime.isBefore(requestedAt)) {
             throw new IllegalArgumentException("Resolution time must not precede request time");
         }
-        this.status = decision;
-        this.resolvedAt = decisionTime;
+        return decisionTime;
     }
 
     private static <T> T requireValue(T value, String message) {

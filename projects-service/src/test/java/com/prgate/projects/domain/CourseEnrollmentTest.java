@@ -127,6 +127,40 @@ class CourseEnrollmentTest {
         assertThat(enrollment.getResolvedAt()).isEmpty();
     }
 
+    @ParameterizedTest
+    @EnumSource(EnrollmentStatus.class)
+    void reconstitutesPersistedStateWithoutChangingIdentityOrDates(EnrollmentStatus status) {
+        Instant resolvedAt = status == EnrollmentStatus.PENDING ? null : RESOLVED_AT;
+
+        CourseEnrollment restored = CourseEnrollment.reconstitute(ENROLLMENT_ID, COURSE_ID, STUDENT_ID,
+                REQUESTED_AT, status, resolvedAt);
+
+        assertThat(restored.getId()).isEqualTo(ENROLLMENT_ID);
+        assertThat(restored.getCourseId()).isEqualTo(COURSE_ID);
+        assertThat(restored.getStudentId()).isEqualTo(STUDENT_ID);
+        assertThat(restored.getRequestedAt()).isEqualTo(REQUESTED_AT);
+        assertThat(restored.getStatus()).isEqualTo(status);
+        assertThat(restored.getResolvedAt()).isEqualTo(java.util.Optional.ofNullable(resolvedAt));
+    }
+
+    @ParameterizedTest
+    @MethodSource("invalidPersistedResolutions")
+    void rejectsInconsistentPersistedState(EnrollmentStatus status, Instant resolvedAt) {
+        assertThatIllegalArgumentException().isThrownBy(() -> CourseEnrollment.reconstitute(
+                ENROLLMENT_ID, COURSE_ID, STUDENT_ID, REQUESTED_AT, status, resolvedAt));
+    }
+
+    static Stream<Arguments> invalidPersistedResolutions() {
+        return Stream.of(
+                Arguments.of(null, null),
+                Arguments.of(EnrollmentStatus.PENDING, RESOLVED_AT),
+                Arguments.of(EnrollmentStatus.APPROVED, null),
+                Arguments.of(EnrollmentStatus.REJECTED, null),
+                Arguments.of(EnrollmentStatus.APPROVED, REQUESTED_AT.minusNanos(1)),
+                Arguments.of(EnrollmentStatus.REJECTED, REQUESTED_AT.minusNanos(1))
+        );
+    }
+
     private static CourseEnrollment pendingEnrollment() {
         return CourseEnrollment.request(ENROLLMENT_ID, COURSE_ID, STUDENT_ID, REQUESTED_AT);
     }

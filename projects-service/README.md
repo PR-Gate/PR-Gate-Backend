@@ -57,11 +57,15 @@ Flyway gestiona las migraciones; Hibernate valida el esquema. Consultar
 ## Estado de implementación
 
 Están implementados el modelo de dominio, los casos de uso de creación de cursos
-y grupos/proyectos, la solicitud de ingreso y su aprobación o rechazo, y los
-adaptadores PostgreSQL para guardar y consultar cursos y proyectos. La
-persistencia de inscripciones todavía es un puerto simulado. Las pruebas
-unitarias simulan los puertos; las de integración existentes usan repositorios
-reales de cursos/proyectos y PostgreSQL temporal.
+y grupos/proyectos, la solicitud de ingreso y su aprobación o rechazo, la
+incorporación de alumnos admitidos a grupos, y los
+adaptadores PostgreSQL para guardar y consultar cursos, proyectos e inscripciones.
+Las inscripciones incluyen protección contra duplicados y decisiones
+concurrentes, conservando el historial de rechazos. Las pruebas unitarias simulan
+los puertos; las de integración usan repositorios reales y PostgreSQL temporal.
+
+El repositorio de participaciones todavía está simulado en las pruebas de
+aplicación; su tabla y su adaptador corresponden al siguiente incremento.
 
 El controller, la autenticación, el adaptador HTTP de Usuarios y la composición
 de los casos de uso están pendientes. La integración real con Usuarios se deja
@@ -74,6 +78,9 @@ reglas de autorización.
 
 Consultar [admisión al curso](docs/course-enrollment.md) para el flujo de
 solicitud, aprobación, rechazo y nueva solicitud tras un rechazo.
+
+Consultar [incorporación al proyecto](docs/join-project.md) para las condiciones
+de admisión y exclusividad de grupo dentro de cada curso.
 
 Todas las dependencias, configuraciones y pruebas propias de Proyectos deben
 permanecer dentro de esta carpeta. Los demás microservicios se incorporarán como

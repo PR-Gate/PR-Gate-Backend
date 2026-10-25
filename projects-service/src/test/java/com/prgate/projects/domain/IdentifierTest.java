@@ -3,6 +3,7 @@ package com.prgate.projects.domain;
 import com.prgate.projects.domain.model.valueobject.CourseId;
 import com.prgate.projects.domain.model.valueobject.CourseEnrollmentId;
 import com.prgate.projects.domain.model.valueobject.ProjectId;
+import com.prgate.projects.domain.model.valueobject.ProjectMembershipId;
 import com.prgate.projects.domain.model.valueobject.StudentId;
 import com.prgate.projects.domain.model.valueobject.TeacherId;
 import org.junit.jupiter.api.Test;
@@ -23,10 +24,12 @@ class IdentifierTest {
         assertThat(new TeacherId(value)).isEqualTo(new TeacherId(value));
         assertThat(new StudentId(value)).isEqualTo(new StudentId(value));
         assertThat(new CourseEnrollmentId(value)).isEqualTo(new CourseEnrollmentId(value));
+        assertThat(new ProjectMembershipId(value)).isEqualTo(new ProjectMembershipId(value));
         assertThat(new CourseId(value)).isNotEqualTo(new ProjectId(value));
         assertThat(new CourseId(value)).isNotEqualTo(new TeacherId(value));
         assertThat(new StudentId(value)).isNotEqualTo(new TeacherId(value));
         assertThat(new CourseEnrollmentId(value)).isNotEqualTo(new CourseId(value));
+        assertThat(new ProjectMembershipId(value)).isNotEqualTo(new CourseEnrollmentId(value));
     }
 
     @Test
@@ -36,5 +39,6 @@ class IdentifierTest {
         assertThatIllegalArgumentException().isThrownBy(() -> new TeacherId(null));
         assertThatIllegalArgumentException().isThrownBy(() -> new StudentId(null));
         assertThatIllegalArgumentException().isThrownBy(() -> new CourseEnrollmentId(null));
+        assertThatIllegalArgumentException().isThrownBy(() -> new ProjectMembershipId(null));
     }
 }

@@ -1,6 +1,6 @@
 package com.prgate.projects.domain;
 
-import com.prgate.projects.domain.model.Course;
+import com.prgate.projects.domain.model.aggregates.Course;
 import com.prgate.projects.domain.model.valueobject.CourseId;
 import com.prgate.projects.domain.model.valueobject.TeacherId;
 import org.junit.jupiter.api.Test;

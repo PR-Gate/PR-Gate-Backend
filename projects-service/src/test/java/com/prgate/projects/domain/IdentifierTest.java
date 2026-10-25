@@ -1,7 +1,9 @@
 package com.prgate.projects.domain;
 
 import com.prgate.projects.domain.model.valueobject.CourseId;
+import com.prgate.projects.domain.model.valueobject.CourseEnrollmentId;
 import com.prgate.projects.domain.model.valueobject.ProjectId;
+import com.prgate.projects.domain.model.valueobject.StudentId;
 import com.prgate.projects.domain.model.valueobject.TeacherId;
 import org.junit.jupiter.api.Test;
 
@@ -19,8 +21,12 @@ class IdentifierTest {
         assertThat(new CourseId(value)).isEqualTo(new CourseId(value));
         assertThat(new ProjectId(value)).isEqualTo(new ProjectId(value));
         assertThat(new TeacherId(value)).isEqualTo(new TeacherId(value));
+        assertThat(new StudentId(value)).isEqualTo(new StudentId(value));
+        assertThat(new CourseEnrollmentId(value)).isEqualTo(new CourseEnrollmentId(value));
         assertThat(new CourseId(value)).isNotEqualTo(new ProjectId(value));
         assertThat(new CourseId(value)).isNotEqualTo(new TeacherId(value));
+        assertThat(new StudentId(value)).isNotEqualTo(new TeacherId(value));
+        assertThat(new CourseEnrollmentId(value)).isNotEqualTo(new CourseId(value));
     }
 
     @Test
@@ -28,5 +34,7 @@ class IdentifierTest {
         assertThatIllegalArgumentException().isThrownBy(() -> new CourseId(null));
         assertThatIllegalArgumentException().isThrownBy(() -> new ProjectId(null));
         assertThatIllegalArgumentException().isThrownBy(() -> new TeacherId(null));
+        assertThatIllegalArgumentException().isThrownBy(() -> new StudentId(null));
+        assertThatIllegalArgumentException().isThrownBy(() -> new CourseEnrollmentId(null));
     }
 }

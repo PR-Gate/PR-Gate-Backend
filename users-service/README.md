@@ -1,1 +1,0 @@
-﻿# EduGate - Microservicio de Usuarios

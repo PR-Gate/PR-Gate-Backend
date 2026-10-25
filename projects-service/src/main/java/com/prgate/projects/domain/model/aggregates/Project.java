@@ -1,9 +1,12 @@
 package com.prgate.projects.domain.model.aggregates;
 
 import com.prgate.projects.domain.model.valueobject.CourseId;
+import com.prgate.projects.domain.model.valueobject.GitHubOrganization;
 import com.prgate.projects.domain.model.valueobject.ProjectId;
+import com.prgate.projects.domain.model.valueobject.StudentId;
 
 import java.time.Instant;
+import java.util.Optional;
 
 /**
  * Aggregate root representing a group's academic project within a course.
@@ -19,6 +22,8 @@ public final class Project {
     private final String description;
     private final CourseId courseId;
     private final Instant createdAt;
+    private GitHubOrganization gitHubOrganization;
+    private StudentId leaderId;
 
     private Project(ProjectId id, String name, String description, CourseId courseId, Instant createdAt) {
         this.id = requireValue(id, "Project id is required");
@@ -33,6 +38,34 @@ public final class Project {
      */
     public static Project create(ProjectId id, String name, String description, CourseId courseId, Instant createdAt) {
         return new Project(id, name, description, courseId, createdAt);
+    }
+
+    public void designateLeader(StudentId studentId) {
+        this.leaderId = requireValue(studentId, "Leader id is required");
+    }
+
+    public void removeLeader() {
+        this.leaderId = null;
+    }
+
+    public Optional<StudentId> getLeaderId() {
+        return Optional.ofNullable(leaderId);
+    }
+
+    public void linkGitHubOrganization(GitHubOrganization organization, StudentId actorId) {
+        requireValue(organization, "GitHub organization is required");
+        requireValue(actorId, "Actor id is required");
+        if (leaderId == null || !leaderId.equals(actorId)) {
+            throw new IllegalStateException("Only the project leader can link a GitHub organization");
+        }
+        if (gitHubOrganization != null) {
+            throw new IllegalStateException("Project already has a linked GitHub organization");
+        }
+        this.gitHubOrganization = organization;
+    }
+
+    public Optional<GitHubOrganization> getGitHubOrganization() {
+        return Optional.ofNullable(gitHubOrganization);
     }
 
     public ProjectId getId() {

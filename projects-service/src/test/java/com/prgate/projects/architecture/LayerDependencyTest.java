@@ -16,4 +16,11 @@ class LayerDependencyTest {
             .should().dependOnClassesThat()
             .resideOutsideOfPackages("java..", "com.prgate.projects.domain..")
             .because("the domain must remain independent of frameworks and external layers");
+
+    @ArchTest
+    static final ArchRule applicationDependsOnlyOnJavaDomainAndItself = noClasses()
+            .that().resideInAPackage("com.prgate.projects.application..")
+            .should().dependOnClassesThat()
+            .resideOutsideOfPackages("java..", "com.prgate.projects.domain..", "com.prgate.projects.application..")
+            .because("use cases must not depend on Spring, HTTP, JPA or external adapters");
 }

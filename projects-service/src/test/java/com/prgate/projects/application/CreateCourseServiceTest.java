@@ -83,7 +83,7 @@ class CreateCourseServiceTest {
 
         assertThatThrownBy(() -> service.handle(COMMAND, ACTOR))
                 .isInstanceOf(AccessDeniedException.class)
-                .hasMessage("Only an active teacher can create a course");
+                .hasMessage("An active teacher is required");
 
         verifyNoInteractions(courses);
     }

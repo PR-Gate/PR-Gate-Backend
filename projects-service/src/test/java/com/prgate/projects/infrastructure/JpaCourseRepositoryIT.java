@@ -59,10 +59,13 @@ class JpaCourseRepositoryIT {
     void migratesEmptyDatabaseAndDoesNotRepeatAppliedMigration() {
         flyway.validate();
 
-        assertThat(flyway.info().current().getVersion().getVersion()).isEqualTo("1");
+        assertThat(flyway.info().current().getVersion().getVersion()).isEqualTo("2");
         assertThat(flyway.migrate().migrationsExecuted).isZero();
         assertThat(jdbc.queryForObject(
                 "SELECT count(*) FROM flyway_schema_history WHERE version = '1' AND success", Integer.class))
+                .isEqualTo(1);
+        assertThat(jdbc.queryForObject(
+                "SELECT count(*) FROM flyway_schema_history WHERE version = '2' AND success", Integer.class))
                 .isEqualTo(1);
     }
 
@@ -84,6 +87,22 @@ class JpaCourseRepositoryIT {
         assertThat(row.get("teacher_id")).isEqualTo(teacherId);
         assertThat(jdbc.queryForObject("SELECT created_at FROM courses WHERE id = ?", Timestamp.class, courseId)
                 .toInstant()).isEqualTo(createdAt);
+    }
+
+    @Test
+    void loadsPersistedCourseAsDomainAggregate() {
+        Course course = Course.create(new CourseId(UUID.randomUUID()), "Aplicaciones Web", "1234", "2026-2",
+                new TeacherId(UUID.randomUUID()), Instant.parse("2026-10-25T05:00:00Z"));
+        courses.save(course);
+
+        Course loaded = courses.findById(course.getId()).orElseThrow();
+
+        assertThat(loaded).usingRecursiveComparison().isEqualTo(course);
+    }
+
+    @Test
+    void returnsEmptyForUnknownCourse() {
+        assertThat(courses.findById(new CourseId(UUID.randomUUID()))).isEmpty();
     }
 
     @Test

@@ -40,6 +40,15 @@ public final class Project {
         return new Project(id, name, description, courseId, createdAt);
     }
 
+    /** Rebuilds stored state without replaying commands or requiring the former leader. */
+    public static Project reconstitute(ProjectId id, String name, String description, CourseId courseId,
+                                       Instant createdAt, StudentId leaderId, GitHubOrganization organization) {
+        Project project = new Project(id, name, description, courseId, createdAt);
+        project.leaderId = leaderId;
+        project.gitHubOrganization = organization;
+        return project;
+    }
+
     public void designateLeader(StudentId studentId) {
         this.leaderId = requireValue(studentId, "Leader id is required");
     }

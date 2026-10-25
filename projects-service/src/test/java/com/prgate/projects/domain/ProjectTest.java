@@ -216,6 +216,20 @@ class ProjectTest {
         assertThat(project.getGitHubOrganization()).isEmpty();
     }
 
+    @Test
+    void reconstitutesOrganizationWithoutRequiringLeaderDesignation() {
+        GitHubOrganization organization = new GitHubOrganization(123L, "prgate-team");
+
+        Project project = Project.reconstitute(PROJECT_ID, "PRGate", "", COURSE_ID, CREATED_AT, null, organization);
+
+        assertThat(project.getId()).isEqualTo(PROJECT_ID);
+        assertThat(project.getCourseId()).isEqualTo(COURSE_ID);
+        assertThat(project.getCreatedAt()).isEqualTo(CREATED_AT);
+        assertThat(project.getLeaderId()).isEmpty();
+        assertThat(project.getGitHubOrganization()).contains(organization);
+        assertThatIllegalStateException().isThrownBy(() -> project.linkGitHubOrganization(organization, LEADER_ID));
+    }
+
     @ParameterizedTest
     @NullAndEmptySource
     @ValueSource(strings = {" ", "\t\n", "\u2003"})

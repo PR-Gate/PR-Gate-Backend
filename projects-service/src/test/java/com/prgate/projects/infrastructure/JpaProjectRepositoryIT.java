@@ -198,7 +198,7 @@ class JpaProjectRepositoryIT {
                 .dataSource(POSTGRES.getJdbcUrl(), POSTGRES.getUsername(), POSTGRES.getPassword())
                 .schemas(schema).load();
 
-        assertThat(upgraded.migrate().migrationsExecuted).isEqualTo(2);
+        assertThat(upgraded.migrate().migrationsExecuted).isEqualTo(3);
         assertThat(jdbc.queryForObject("SELECT name FROM " + schema + ".courses WHERE id = ?", String.class, courseId))
                 .isEqualTo("Aplicaciones Web");
         assertThat(jdbc.queryForObject("SELECT count(*) FROM " + schema + ".projects", Integer.class)).isZero();

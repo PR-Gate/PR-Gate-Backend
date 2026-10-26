@@ -59,7 +59,7 @@ class JpaCourseRepositoryIT {
     void migratesEmptyDatabaseAndDoesNotRepeatAppliedMigration() {
         flyway.validate();
 
-        assertThat(flyway.info().current().getVersion().getVersion()).isEqualTo("3");
+        assertThat(flyway.info().current().getVersion().getVersion()).isEqualTo("4");
         assertThat(flyway.migrate().migrationsExecuted).isZero();
         assertThat(jdbc.queryForObject(
                 "SELECT count(*) FROM flyway_schema_history WHERE version = '1' AND success", Integer.class))

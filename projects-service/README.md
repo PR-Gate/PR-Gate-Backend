@@ -64,8 +64,13 @@ Las inscripciones incluyen protección contra duplicados y decisiones
 concurrentes, conservando el historial de rechazos. Las pruebas unitarias simulan
 los puertos; las de integración usan repositorios reales y PostgreSQL temporal.
 
-El repositorio de participaciones todavía está simulado en las pruebas de
-aplicación; su tabla y su adaptador corresponden al siguiente incremento.
+Las membresías cuentan con tabla y adaptador PostgreSQL. La migración V4
+garantiza un grupo activo por alumno y curso y valida la relación proyecto/curso.
+El adaptador inserta sin sobrescribir el historial. Están implementados los casos
+de uso para designar, reemplazar y retirar al líder, vincular una organización
+validada en GitHub y trasladar alumnos entre grupos del mismo curso.
+El traslado conserva el historial y retira el liderazgo anterior cuando corresponde.
+Consultar [gestión de grupos](docs/group-management.md) para contratos y concurrencia.
 
 El controller, la autenticación, el adaptador HTTP de Usuarios y la composición
 de los casos de uso están pendientes. La integración real con Usuarios se deja

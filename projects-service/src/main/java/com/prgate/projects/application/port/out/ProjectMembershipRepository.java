@@ -17,4 +17,7 @@ public interface ProjectMembershipRepository {
      * ProjectMembershipConflictException on conflicts, even after a prior lookup.
      */
     void add(ProjectMembership membership);
+
+    /** Closes only the matching persisted active record; raises a conflict if stale. */
+    void close(ProjectMembership membership);
 }

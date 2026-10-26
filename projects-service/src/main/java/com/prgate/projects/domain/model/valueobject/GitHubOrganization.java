@@ -9,6 +9,10 @@ public record GitHubOrganization(long id, String login) {
         if (id <= 0) {
             throw new IllegalArgumentException("GitHub organization id must be positive");
         }
+        login = normalizeLogin(login);
+    }
+
+    public static String normalizeLogin(String login) {
         if (login == null || login.isBlank()) {
             throw new IllegalArgumentException("GitHub organization login is required");
         }
@@ -16,5 +20,6 @@ public record GitHubOrganization(long id, String login) {
         if (!login.matches("[a-z0-9-]+")) {
             throw new IllegalArgumentException("GitHub organization login must contain only letters, digits or hyphens");
         }
+        return login;
     }
 }

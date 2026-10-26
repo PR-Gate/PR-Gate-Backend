@@ -294,7 +294,7 @@ class JpaCourseEnrollmentRepositoryIT {
                 .dataSource(POSTGRES.getJdbcUrl(), POSTGRES.getUsername(), POSTGRES.getPassword())
                 .schemas(schema).load();
 
-        assertThat(upgraded.migrate().migrationsExecuted).isEqualTo(1);
+        assertThat(upgraded.migrate().migrationsExecuted).isEqualTo(2);
         assertThat(jdbc.queryForObject("SELECT name FROM " + schema + ".courses WHERE id = ?", String.class, courseId)).isEqualTo("Web");
         assertThat(jdbc.queryForObject("SELECT name FROM " + schema + ".projects WHERE id = ?", String.class, projectId)).isEqualTo("Grupo 1");
         assertThat(jdbc.queryForObject("SELECT count(*) FROM " + schema + ".course_enrollments", Integer.class)).isZero();

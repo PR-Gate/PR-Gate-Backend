@@ -28,6 +28,12 @@ public final class UserAccessPolicy {
         return new StudentId(requireActiveUser(actor, UserAccount.Role.STUDENT).id());
     }
 
+    /** Validates a selected student without treating that student as the authenticated caller. */
+    public StudentId requireActiveStudent(StudentId studentId) {
+        Objects.requireNonNull(studentId, "Student id is required");
+        return new StudentId(requireActiveUser(new Actor(studentId.value()), UserAccount.Role.STUDENT).id());
+    }
+
     private UserAccount requireActiveUser(Actor actor, UserAccount.Role expectedRole) {
         Objects.requireNonNull(actor, "Authenticated actor is required");
         UserAccount user = users.findById(actor.userId())

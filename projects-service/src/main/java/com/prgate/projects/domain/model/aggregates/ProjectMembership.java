@@ -35,6 +35,18 @@ public final class ProjectMembership {
         return new ProjectMembership(id, courseId, projectId, studentId, joinedAt);
     }
 
+    public static ProjectMembership reconstitute(ProjectMembershipId id, CourseId courseId, ProjectId projectId,
+                                                StudentId studentId, Instant joinedAt, Instant leftAt) {
+        ProjectMembership membership = new ProjectMembership(id, courseId, projectId, studentId, joinedAt);
+        if (leftAt != null) {
+            if (leftAt.isBefore(joinedAt)) {
+                throw new IllegalArgumentException("Leave time must not precede join time");
+            }
+            membership.leftAt = leftAt;
+        }
+        return membership;
+    }
+
     public void close(Instant leftAt) {
         if (!isActive()) {
             throw new IllegalStateException("Only active project memberships can be closed");

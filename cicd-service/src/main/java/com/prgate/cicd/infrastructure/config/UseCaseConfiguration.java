@@ -18,6 +18,12 @@ import java.util.Objects;
 public class UseCaseConfiguration {
 
     @Bean
+    com.prgate.cicd.application.port.in.QueryPipelineRunsUseCase queryPipelineRunsUseCase(
+            com.prgate.cicd.application.port.out.PipelineRunQueryPort queryPort) {
+        return new com.prgate.cicd.application.service.QueryPipelineRunsService(queryPort);
+    }
+
+    @Bean
     Clock systemClock() {
         return Clock.systemUTC();
     }

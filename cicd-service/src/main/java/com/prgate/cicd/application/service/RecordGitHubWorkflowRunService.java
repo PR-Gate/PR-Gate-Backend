@@ -76,7 +76,7 @@ public final class RecordGitHubWorkflowRunService implements RecordGitHubWorkflo
                 // A newly created aggregate is already queued.
             }
             case IN_PROGRESS -> pipelineRun.start(event.startedAt());
-            case COMPLETED -> pipelineRun.complete(event.conclusion(), event.completedAt());
+            case COMPLETED -> { if (pipelineRun.getStatus() == PipelineRunStatus.QUEUED && event.startedAt() != null) { pipelineRun.start(event.startedAt()); } pipelineRun.complete(event.conclusion(), event.completedAt()); }
         }
     }
 

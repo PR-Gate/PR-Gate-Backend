@@ -15,19 +15,19 @@ import java.util.Optional;
 public class PipelineRunPersistenceAdapter implements PipelineRunRepository {
 
     private final SpringDataPipelineRunRepository repository;
-    private final PipelineRunEntityMapper mapper;
+    private final PipelineRunEntityMapper mapper; private final org.springframework.jdbc.core.JdbcTemplate jdbcTemplate;
 
     public PipelineRunPersistenceAdapter(SpringDataPipelineRunRepository repository,
-                                         PipelineRunEntityMapper mapper) {
+                                         PipelineRunEntityMapper mapper, org.springframework.jdbc.core.JdbcTemplate jdbcTemplate) {
         this.repository = repository;
-        this.mapper = mapper;
+        this.mapper = mapper; this.jdbcTemplate = jdbcTemplate;
     }
 
     @Override
     public Optional<PipelineRun> findByGitHubIdentity(GitHubRepository repository,
                                                       GitHubWorkflowRunId runId,
                                                       GitHubRunAttempt attempt) {
-        return this.repository.findByGithubRepositoryIdAndGithubRunIdAndGithubRunAttempt(
+        jdbcTemplate.query("SELECT pg_advisory_xact_lock(hashtextextended(?, 0))", (org.springframework.jdbc.core.RowCallbackHandler) row -> { }, repository.id() + ":" + runId.value() + ":" + attempt.value()); return this.repository.findByGithubRepositoryIdAndGithubRunIdAndGithubRunAttempt(
                         repository.id(), runId.value(), attempt.value())
                 .map(mapper::toDomain);
     }

@@ -8,10 +8,15 @@ spring:
     username: ${DB_USERNAME}
     password: ${DB_PASSWORD}
   jpa:
+    properties:
+      hibernate:
+        default_schema: cicd
     open-in-view: false
     hibernate:
       ddl-auto: validate
   flyway:
+    default-schema: cicd
+    schemas: cicd
     enabled: true
     locations: classpath:db/migration
 
@@ -21,6 +26,7 @@ server:
 app:
   github:
     evaluation-workflow-name: ${GITHUB_EVALUATION_WORKFLOW_NAME:PRGate Evaluation}
+    webhook-secret: ${GITHUB_WEBHOOK_SECRET:}
 
 management:
   endpoints:

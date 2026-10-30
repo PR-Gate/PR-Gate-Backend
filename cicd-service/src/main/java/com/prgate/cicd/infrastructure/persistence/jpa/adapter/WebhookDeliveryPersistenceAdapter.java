@@ -12,7 +12,7 @@ import java.util.Objects;
 public class WebhookDeliveryPersistenceAdapter implements WebhookDeliveryRepository {
 
     private static final String CLAIM_DELIVERY_SQL = """
-            INSERT INTO processed_webhook_deliveries (delivery_id, received_at)
+            INSERT INTO cicd.processed_webhook_deliveries (delivery_id, received_at)
             VALUES (?, ?)
             ON CONFLICT (delivery_id) DO NOTHING
             """;
@@ -27,6 +27,6 @@ public class WebhookDeliveryPersistenceAdapter implements WebhookDeliveryReposit
     public boolean claimIfUnprocessed(GitHubDeliveryId deliveryId, Instant receivedAt) {
         Objects.requireNonNull(deliveryId, "GitHub delivery id is required");
         Objects.requireNonNull(receivedAt, "Webhook received time is required");
-        return jdbcTemplate.update(CLAIM_DELIVERY_SQL, deliveryId.value(), receivedAt) == 1;
+        return jdbcTemplate.update(CLAIM_DELIVERY_SQL, deliveryId.value(), java.sql.Timestamp.from(receivedAt)) == 1;
     }
 }

@@ -72,11 +72,21 @@ validada en GitHub y trasladar alumnos entre grupos del mismo curso.
 El traslado conserva el historial y retira el liderazgo anterior cuando corresponde.
 Consultar [gestión de grupos](docs/group-management.md) para contratos y concurrencia.
 
-El controller, la autenticación, el adaptador HTTP de Usuarios y la composición
-de los casos de uso están pendientes. La integración real con Usuarios se deja
-para el final; sus consultas siguen simuladas en las pruebas de aplicación,
-manteniendo las comprobaciones de rol y estado. Aún no existen endpoints para
-crear cursos o proyectos.
+Están implementados los controllers REST, las consultas paginadas y la composición
+de los casos de uso. El perfil `local` admite identidad de desarrollo mediante
+`X-User-Id`; la configuración JWT para Cognito queda preparada para su activación.
+
+La conexión con el microservicio de Usuarios está deshabilitada. No existen
+consultas HTTP a ese servicio ni se requieren su URL o token. Los puertos
+`UserDirectory` y `CognitoIdentityDirectory` se conservan para conectar después
+una proyección local alimentada por RabbitMQ; aún no hay consumidores ni
+sincronización de usuarios implementados.
+
+Hasta disponer de esa proyección, `DisconnectedUserDirectory` produce un error
+de disponibilidad: las operaciones que necesitan verificar usuarios responden
+`503`, incluso en el perfil `local`. No se asumen roles ni estados automáticamente.
+Las pruebas simulan esos puertos y conservan las comprobaciones de autorización.
+Swagger (`/swagger-ui/index.html`) y salud (`/actuator/health`) siguen disponibles.
 
 Consultar [creación de proyectos](docs/create-project.md) para el flujo y sus
 reglas de autorización.

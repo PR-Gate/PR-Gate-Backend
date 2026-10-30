@@ -8,4 +8,8 @@ public record PipelineRunId(UUID value) {
     public PipelineRunId {
         Objects.requireNonNull(value, "Pipeline run id is required");
     }
+
+    public static PipelineRunId generate() {
+        return new PipelineRunId(UUID.randomUUID());
+    }
 }

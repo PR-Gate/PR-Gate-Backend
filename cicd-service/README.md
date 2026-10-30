@@ -13,12 +13,16 @@ mediante RabbitMQ se implementará después.
 
 DDD ligero con arquitectura hexagonal. `domain` contiene el modelo de las
 ejecuciones y resultados; `application` define casos de uso y puertos;
-`infrastructure` implementará PostgreSQL y adaptadores de GitHub/SonarQube;
+`infrastructure` implementa PostgreSQL y adaptadores de GitHub/SonarQube;
 `interfaces` expondrá la API y recibirá webhooks.
 
 ## Estado
 
 El dominio inicial modela cada ejecución del workflow dedicado de evaluación,
-su ciclo de vida y el resultado asociado de SonarQube. Los demás workflows del
-repositorio quedan fuera del seguimiento. Todavía no se han implementado
-persistencia, webhooks ni integraciones externas.
+su ciclo de vida y el resultado asociado de SonarQube. Cada reintento de GitHub
+Actions queda como intento independiente para conservar el historial de fallos.
+Los demás workflows del repositorio quedan fuera del seguimiento. La capa de
+aplicación ya procesa eventos normalizados, filtra el workflow dedicado y define
+la idempotencia por entrega. La persistencia PostgreSQL/Flyway ya está conectada
+mediante adaptadores hexagonales. Todavía faltan el adaptador HTTP del webhook,
+la validación de su firma y las integraciones externas con GitHub y SonarQube.

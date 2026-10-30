@@ -18,6 +18,10 @@ spring:
 server:
   port: ${SERVER_PORT:8082}
 
+app:
+  github:
+    evaluation-workflow-name: ${GITHUB_EVALUATION_WORKFLOW_NAME:PRGate Evaluation}
+
 management:
   endpoints:
     web:

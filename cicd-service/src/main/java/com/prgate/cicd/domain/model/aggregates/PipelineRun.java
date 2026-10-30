@@ -5,6 +5,7 @@ import com.prgate.cicd.domain.model.enums.PipelineRunStatus;
 import com.prgate.cicd.domain.model.enums.PipelineTrigger;
 import com.prgate.cicd.domain.model.valueobject.GitCommitSha;
 import com.prgate.cicd.domain.model.valueobject.GitHubRepository;
+import com.prgate.cicd.domain.model.valueobject.GitHubRunAttempt;
 import com.prgate.cicd.domain.model.valueobject.GitHubWorkflowRunId;
 import com.prgate.cicd.domain.model.valueobject.PipelineRunId;
 import com.prgate.cicd.domain.model.valueobject.SonarAnalysisResult;
@@ -20,6 +21,7 @@ public final class PipelineRun {
 
     private final PipelineRunId id;
     private final GitHubWorkflowRunId githubRunId;
+    private final GitHubRunAttempt githubRunAttempt;
     private final GitHubRepository repository;
     private final String workflowName;
     private final String branch;
@@ -34,11 +36,13 @@ public final class PipelineRun {
     private Instant updatedAt;
     private SonarAnalysisResult sonarAnalysis;
 
-    private PipelineRun(PipelineRunId id, GitHubWorkflowRunId githubRunId, GitHubRepository repository,
+    private PipelineRun(PipelineRunId id, GitHubWorkflowRunId githubRunId, GitHubRunAttempt githubRunAttempt,
+                        GitHubRepository repository,
                         String workflowName, String branch, GitCommitSha commitSha, PipelineTrigger trigger,
                         URI runUrl, Instant createdAt) {
         this.id = Objects.requireNonNull(id, "Pipeline run id is required");
         this.githubRunId = Objects.requireNonNull(githubRunId, "GitHub workflow run id is required");
+        this.githubRunAttempt = Objects.requireNonNull(githubRunAttempt, "GitHub workflow run attempt is required");
         this.repository = Objects.requireNonNull(repository, "GitHub repository is required");
         this.workflowName = requireText(workflowName, "Workflow name", 200);
         this.branch = requireText(branch, "Branch", 255);
@@ -51,11 +55,32 @@ public final class PipelineRun {
     }
 
     public static PipelineRun queued(PipelineRunId id, GitHubWorkflowRunId githubRunId,
+                                      GitHubRunAttempt githubRunAttempt,
                                       GitHubRepository repository, String workflowName, String branch,
                                       GitCommitSha commitSha, PipelineTrigger trigger, URI runUrl,
                                       Instant createdAt) {
-        return new PipelineRun(id, githubRunId, repository, workflowName, branch, commitSha,
+        return new PipelineRun(id, githubRunId, githubRunAttempt, repository, workflowName, branch, commitSha,
                 trigger, runUrl, createdAt);
+    }
+
+    /** Rebuilds an aggregate from persisted state while keeping its invariants. */
+    public static PipelineRun reconstitute(PipelineRunId id, GitHubWorkflowRunId githubRunId,
+                                           GitHubRunAttempt githubRunAttempt, GitHubRepository repository,
+                                           String workflowName, String branch, GitCommitSha commitSha,
+                                           PipelineTrigger trigger, URI runUrl, Instant createdAt,
+                                           PipelineRunStatus status, PipelineConclusion conclusion,
+                                           Instant startedAt, Instant completedAt, Instant updatedAt,
+                                           SonarAnalysisResult sonarAnalysis) {
+        PipelineRun pipelineRun = new PipelineRun(id, githubRunId, githubRunAttempt, repository,
+                workflowName, branch, commitSha, trigger, runUrl, createdAt);
+        pipelineRun.status = Objects.requireNonNull(status, "Pipeline run status is required");
+        pipelineRun.conclusion = conclusion;
+        pipelineRun.startedAt = startedAt;
+        pipelineRun.completedAt = completedAt;
+        pipelineRun.updatedAt = Objects.requireNonNull(updatedAt, "Update time is required");
+        pipelineRun.sonarAnalysis = sonarAnalysis;
+        pipelineRun.validatePersistedState();
+        return pipelineRun;
     }
 
     /** Moves a queued run to in-progress. Replayed start events are harmless. */
@@ -115,6 +140,7 @@ public final class PipelineRun {
 
     public PipelineRunId getId() { return id; }
     public GitHubWorkflowRunId getGithubRunId() { return githubRunId; }
+    public GitHubRunAttempt getGithubRunAttempt() { return githubRunAttempt; }
     public GitHubRepository getRepository() { return repository; }
     public String getWorkflowName() { return workflowName; }
     public String getBranch() { return branch; }
@@ -144,5 +170,36 @@ public final class PipelineRun {
             throw new IllegalArgumentException(label + " must contain between 1 and " + maxLength + " characters");
         }
         return normalized;
+    }
+
+    private void validatePersistedState() {
+        if (updatedAt.isBefore(createdAt)) {
+            throw new IllegalArgumentException("Update time must not precede creation time");
+        }
+        if (startedAt != null && startedAt.isBefore(createdAt)) {
+            throw new IllegalArgumentException("Start time must not precede creation time");
+        }
+        if (completedAt != null && (completedAt.isBefore(createdAt)
+                || (startedAt != null && completedAt.isBefore(startedAt)))) {
+            throw new IllegalArgumentException("Completion time must not precede creation or start time");
+        }
+
+        switch (status) {
+            case QUEUED -> {
+                if (startedAt != null || completedAt != null || conclusion != null) {
+                    throw new IllegalArgumentException("Queued run cannot have start or completion data");
+                }
+            }
+            case IN_PROGRESS -> {
+                if (startedAt == null || completedAt != null || conclusion != null) {
+                    throw new IllegalArgumentException("In-progress run must have only start data");
+                }
+            }
+            case COMPLETED -> {
+                if (completedAt == null || conclusion == null || updatedAt.isBefore(completedAt)) {
+                    throw new IllegalArgumentException("Completed run must have valid completion data");
+                }
+            }
+        }
     }
 }

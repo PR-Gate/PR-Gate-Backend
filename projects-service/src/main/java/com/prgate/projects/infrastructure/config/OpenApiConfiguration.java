@@ -17,7 +17,7 @@ public class OpenApiConfiguration {
         boolean local=environment.acceptsProfiles(Profiles.of("local"));
         String name=local ? "localUser" : "cognito";
         var scheme=local ? new SecurityScheme().type(SecurityScheme.Type.APIKEY).in(SecurityScheme.In.HEADER)
-                .name("X-User-Id").description("Solo desarrollo local: UUID local. La validación de usuarios está pendiente de integración")
+                .name("X-User-Id").description("Solo local: agrega un UUID configurado en prgate.local.users")
                 : new SecurityScheme().type(SecurityScheme.Type.HTTP).scheme("bearer").bearerFormat("JWT")
                 .description("Access token de Cognito; no acepta ID tokens");
         return new OpenAPI().info(new Info().title("PRGate Projects API").version("v1")

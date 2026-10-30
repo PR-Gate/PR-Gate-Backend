@@ -1,11 +1,13 @@
 spring:
+  config:
+    import: optional:file:.env[.properties]
   jackson:
     deserialization:
       fail-on-unknown-properties: true
   application:
     name: projects-service
   datasource:
-    url: ${DB_URL:jdbc:postgresql://localhost:5432/prgate_projects}
+    url: ${DB_URL:jdbc:postgresql://localhost:5432/pr-gate}
     username: ${DB_USERNAME}
     password: ${DB_PASSWORD}
   jpa:

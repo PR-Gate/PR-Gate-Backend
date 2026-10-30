@@ -47,9 +47,28 @@ en `target/`. Ese directorio se excluye de Git con el `.gitignore` del servicio.
 
 ## PostgreSQL
 
-La aplicación utiliza `DB_USERNAME` y `DB_PASSWORD` como variables obligatorias.
-`DB_URL` es opcional y por defecto apunta a
-`jdbc:postgresql://localhost:5432/prgate_projects`.
+Desde la terminal integrada de VS Code, ejecuta `mvn spring-boot:run` dentro de
+`projects-service`. Spring carga automáticamente el `.env` de esa carpeta y
+activa el perfil local. El archivo no debe contener expresiones literales como
+`DB_USERNAME=${DB_USERNAME}`.
+
+Para autorizar peticiones en Swagger, agrega usuarios locales a
+`prgate.local.users` en el `.env`, con el formato
+`UUID:ROLE:STATUS;UUID:ROLE:STATUS` (roles `STUDENT`, `TEACHER` o `ADMIN`;
+estados `ACTIVE` o `INACTIVE`). Reinicia el servicio, pulsa **Authorize** en
+Swagger e ingresa el UUID registrado. Es una proyección local de desarrollo y
+no consulta ni sincroniza con el microservicio Users.
+
+El perfil `local` conecta por defecto a
+`jdbc:postgresql://localhost:5432/pr-gate` con las credenciales locales
+`prgate` / `prgate-local`; puedes cambiarlas mediante `DB_USERNAME`,
+`DB_PASSWORD` y `DB_URL`. PostgreSQL debe estar iniciado y tener creada la base.
+Si usas Docker Compose para PostgreSQL, copia `.env.example` a `.env`; también
+puedes usar una instalación local cambiando `DB_URL` al puerto y base correctos.
+El `.env` se mantiene fuera de Git.
+
+El perfil predeterminado conserva PostgreSQL en el puerto 5432 y requiere
+`DB_USERNAME` y `DB_PASSWORD` explícitos.
 
 Flyway gestiona las migraciones; Hibernate valida el esquema. Consultar
 [persistencia de cursos](docs/course-persistence.md) para detalles y alcance.

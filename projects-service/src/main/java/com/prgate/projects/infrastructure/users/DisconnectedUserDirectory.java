@@ -5,12 +5,14 @@ import com.prgate.projects.application.model.UserAccount;
 import com.prgate.projects.application.port.out.CognitoIdentityDirectory;
 import com.prgate.projects.application.port.out.UserDirectory;
 import org.springframework.stereotype.Component;
+import org.springframework.context.annotation.Profile;
 
 import java.util.Optional;
 import java.util.UUID;
 
 /** Keeps user-dependent operations unavailable until a local user projection is implemented. */
 @Component
+@Profile("!local")
 public class DisconnectedUserDirectory implements UserDirectory, CognitoIdentityDirectory {
 
     @Override

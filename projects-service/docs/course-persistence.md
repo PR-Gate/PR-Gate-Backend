@@ -25,9 +25,11 @@ migraciones.
 
 | Variable | Contenido |
 | --- | --- |
-| `DB_URL` | URL JDBC; por defecto `jdbc:postgresql://localhost:5432/prgate_projects`. |
-| `DB_USERNAME` | Usuario PostgreSQL, obligatorio. |
-| `DB_PASSWORD` | Contraseña PostgreSQL, obligatoria. |
+| `DB_URL` | URL JDBC; con perfil `local`, por defecto `jdbc:postgresql://localhost:5432/pr-gate`. |
+| `DB_USERNAME` | Usuario PostgreSQL; perfil `local` usa `prgate` por defecto. |
+| `DB_PASSWORD` | Contraseña PostgreSQL; perfil `local` usa `prgate-local` por defecto. |
+
+El perfil predeterminado (sin `local`) exige ambas credenciales y usa el puerto 5432.
 
 La base indicada debe existir antes de arrancar la aplicación; Flyway crea las
 tablas, no la base de datos. No se guardan credenciales en el repositorio.

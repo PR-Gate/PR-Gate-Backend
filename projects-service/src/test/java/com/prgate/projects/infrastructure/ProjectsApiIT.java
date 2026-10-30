@@ -6,7 +6,7 @@ import com.prgate.projects.application.exception.UserDirectoryException;
 import com.prgate.projects.application.model.UserAccount;
 import com.prgate.projects.application.port.out.GitHubOrganizationDirectory;
 import com.prgate.projects.domain.model.valueobject.GitHubOrganization;
-import com.prgate.projects.infrastructure.users.DisconnectedUserDirectory;
+import com.prgate.projects.infrastructure.users.LocalUserDirectory;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -42,7 +42,7 @@ class ProjectsApiIT {
     }
     @Autowired private MockMvc mvc;
     @Autowired private ObjectMapper json;
-    @MockitoBean private DisconnectedUserDirectory users;
+    @MockitoBean private LocalUserDirectory users;
     @MockitoBean private GitHubOrganizationDirectory github;
     private UUID teacher, student, outsider;
     @BeforeEach void setup() {

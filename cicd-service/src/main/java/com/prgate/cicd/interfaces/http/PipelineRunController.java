@@ -35,13 +35,17 @@ public class PipelineRunController {
         }
     }
 
-    public record PipelineRunResponse(UUID id, long repositoryId, String repository,
+    public record PipelineRunResponse(UUID id, UUID academicProjectId, UUID evaluationRepositoryId,
+                                      long repositoryId, String repository,
                                       long githubRunId, int attempt, String workflowName,
                                       String branch, String commitSha, String trigger, String status,
                                       String conclusion, String runUrl, Instant createdAt,
                                       Instant startedAt, Instant completedAt, SonarAnalysisResult sonarAnalysis) {
         static PipelineRunResponse from(PipelineRun run) {
-            return new PipelineRunResponse(run.getId().value(), run.getRepository().id(),
+            var reference = run.getProjectReference();
+            return new PipelineRunResponse(run.getId().value(),
+                    reference.map(value -> value.projectId().value()).orElse(null),
+                    reference.map(value -> value.evaluationRepositoryId().value()).orElse(null), run.getRepository().id(),
                     run.getRepository().fullName(), run.getGithubRunId().value(),
                     run.getGithubRunAttempt().value(), run.getWorkflowName(), run.getBranch(),
                     run.getCommitSha().value(), run.getTrigger().name(), run.getStatus().name(),

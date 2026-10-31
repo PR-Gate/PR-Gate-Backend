@@ -53,6 +53,15 @@ en su envoltura. El adaptador deberá autenticar al productor, validar versión 
 manejar reintentos y mensajes fallidos. No existe un endpoint público para crear
 proyectos o registrar repositorios arbitrarios en CI/CD.
 
-Los webhooks GitHub ya existentes registran ejecuciones, pero todavía no filtran
-por estas configuraciones ni comprueban instalación/organización. Esa asociación
-es un paso pendiente antes de usar el servicio con grupos reales.
+Los webhooks GitHub buscan una configuración por ID de repositorio. Si no existe,
+responden `IGNORED_UNREGISTERED_REPOSITORY` sin guardar ni reclamar la entrega.
+Esto permite redeliverar el evento después de recibir el registro desde Projects.
+Cada ejecución conserva una referencia a la configuración y al UUID académico.
+Se conservan pipelines de todas las ramas admitidas, aunque Sonar Community Build
+solo analice la rama configurada. El estado de Sonar no bloquea el seguimiento CI.
+La comprobación de instalación/organización de la GitHub App sigue pendiente;
+la firma compartida del webhook no sustituye esa comprobación.
+
+La migración V3 enlaza ejecuciones históricas cuando coincide el ID GitHub y deja
+sin asociación las que no tienen registro conocido. Las consultas exponen
+`academicProjectId` y `evaluationRepositoryId`, con valores nulos en ese caso legado.

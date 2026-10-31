@@ -23,6 +23,10 @@ public class PipelineRunEntityMapper {
     public PipelineRunEntity toEntity(PipelineRun pipelineRun) {
         PipelineRunEntity entity = PipelineRunEntity.create();
         entity.setId(pipelineRun.getId().value());
+        pipelineRun.getProjectReference().ifPresent(reference -> {
+            entity.setEvaluationRepositoryId(reference.evaluationRepositoryId().value());
+            entity.setAcademicProjectId(reference.projectId().value());
+        });
         entity.setGithubRepositoryId(pipelineRun.getRepository().id());
         entity.setRepositoryOwner(pipelineRun.getRepository().owner());
         entity.setRepositoryName(pipelineRun.getRepository().name());
@@ -65,7 +69,7 @@ public class PipelineRunEntityMapper {
                     entity.getSonarAnalyzedAt());
         }
 
-        return PipelineRun.reconstitute(
+        PipelineRun run = PipelineRun.reconstitute(
                 new PipelineRunId(entity.getId()),
                 new GitHubWorkflowRunId(entity.getGithubRunId()),
                 new GitHubRunAttempt(entity.getGithubRunAttempt()),
@@ -83,5 +87,11 @@ public class PipelineRunEntityMapper {
                 entity.getCompletedAt(),
                 entity.getUpdatedAt(),
                 sonarAnalysis);
+        if (entity.getEvaluationRepositoryId() != null) {
+            run.associateWith(new com.prgate.cicd.domain.model.valueobject.PipelineProjectReference(
+                    new com.prgate.cicd.domain.model.valueobject.EvaluationRepositoryId(entity.getEvaluationRepositoryId()),
+                    new com.prgate.cicd.domain.model.valueobject.AcademicProjectId(entity.getAcademicProjectId())));
+        }
+        return run;
     }
 }

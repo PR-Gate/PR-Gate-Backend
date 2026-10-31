@@ -9,6 +9,7 @@ public interface RecordGitHubWorkflowRunUseCase {
     enum Result {
         RECORDED,
         DUPLICATE_DELIVERY,
-        IGNORED_WORKFLOW
+        IGNORED_WORKFLOW,
+        IGNORED_UNREGISTERED_REPOSITORY
     }
 }

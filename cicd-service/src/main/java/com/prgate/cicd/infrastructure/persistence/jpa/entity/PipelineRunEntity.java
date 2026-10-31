@@ -25,6 +25,17 @@ public class PipelineRunEntity {
     @Id
     private UUID id;
 
+    @Column(name = "evaluation_repository_id")
+    private UUID evaluationRepositoryId;
+
+    @Column(name = "academic_project_id")
+    private UUID academicProjectId;
+
+    public UUID getEvaluationRepositoryId() { return evaluationRepositoryId; }
+    public void setEvaluationRepositoryId(UUID value) { evaluationRepositoryId = value; }
+    public UUID getAcademicProjectId() { return academicProjectId; }
+    public void setAcademicProjectId(UUID value) { academicProjectId = value; }
+
     @Column(name = "github_repository_id", nullable = false)
     private long githubRepositoryId;
 

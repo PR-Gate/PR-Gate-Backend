@@ -15,9 +15,18 @@ import java.util.Optional;
 import java.util.UUID;
 
 @Repository
-public class RepositoryProvisioningStateAdapter implements RepositoryProvisioningStatePort {
+public class RepositoryProvisioningStateAdapter implements RepositoryProvisioningStatePort,
+        com.prgate.cicd.application.port.out.EvaluationRepositoryLookupPort {
     private final JdbcTemplate jdbc;
     public RepositoryProvisioningStateAdapter(JdbcTemplate jdbc) { this.jdbc = jdbc; }
+
+    @Override
+    @Transactional(readOnly = true)
+    public Optional<EvaluationRepository> findByGithubRepositoryId(long githubRepositoryId) {
+        var ids = jdbc.query("SELECT id FROM cicd.evaluation_repositories WHERE github_repository_id = ?",
+                (row, index) -> new EvaluationRepositoryId(row.getObject("id", UUID.class)), githubRepositoryId);
+        return ids.stream().findFirst().flatMap(this::findById);
+    }
 
     @Override
     @Transactional(readOnly = true)

@@ -61,7 +61,8 @@ public class GitHubWebhookController {
         RecordGitHubWorkflowRunUseCase.Result result = recordWorkflowRun.record(event);
         return switch (result) {
             case DUPLICATE_DELIVERY -> ResponseEntity.ok(new WebhookAcknowledgement(result.name()));
-            case RECORDED, IGNORED_WORKFLOW -> ResponseEntity.accepted().body(new WebhookAcknowledgement(result.name()));
+            case RECORDED, IGNORED_WORKFLOW, IGNORED_UNREGISTERED_REPOSITORY ->
+                    ResponseEntity.accepted().body(new WebhookAcknowledgement(result.name()));
         };
     }
 

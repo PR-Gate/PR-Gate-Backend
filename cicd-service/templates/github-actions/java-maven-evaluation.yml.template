@@ -1,0 +1,38 @@
+name: PRGate Evaluation
+
+on:
+  push:
+  pull_request:
+
+jobs:
+  evaluate:
+    # Dedicated isolated CI runner with Java 21 and Maven; never the PRGate application host.
+    runs-on: [self-hosted, prgate-analysis]
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: Build and test
+        run: mvn -B verify
+      - name: Analyze configured branch
+        if: github.event_name == 'push' && github.ref_name == vars.PRGATE_ANALYSIS_BRANCH
+        env:
+          SONAR_TOKEN: ${{ secrets.PRGATE_SONAR_ANALYSIS_TOKEN }}
+          SONAR_HOST_URL: ${{ vars.PRGATE_SONAR_URL }}
+          SONAR_PROJECT_KEY: ${{ vars.PRGATE_SONAR_PROJECT_KEY }}
+          REPOSITORY_ID: ${{ github.repository_id }}
+          RUN_ID: ${{ github.run_id }}
+          RUN_ATTEMPT: ${{ github.run_attempt }}
+          ANALYSIS_BRANCH: ${{ github.ref_name }}
+          COMMIT_SHA: ${{ github.sha }}
+        shell: bash
+        run: |
+          mvn -B sonar:sonar \
+            "-Dsonar.projectKey=$SONAR_PROJECT_KEY" \
+            "-Dsonar.scm.revision=$COMMIT_SHA" \
+            "-Dsonar.analysis.prgateRepositoryId=$REPOSITORY_ID" \
+            "-Dsonar.analysis.prgateRunId=$RUN_ID" \
+            "-Dsonar.analysis.prgateRunAttempt=$RUN_ATTEMPT" \
+            "-Dsonar.analysis.prgateBranch=$ANALYSIS_BRANCH"

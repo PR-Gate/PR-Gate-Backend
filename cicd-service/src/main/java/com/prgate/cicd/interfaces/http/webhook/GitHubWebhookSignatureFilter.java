@@ -33,23 +33,29 @@ public class GitHubWebhookSignatureFilter extends OncePerRequestFilter {
     private static final int MAX_BODY_SIZE_BYTES = 5 * 1024 * 1024;
 
     private final String webhookSecret;
+    private final String sonarSecret;
 
     public GitHubWebhookSignatureFilter(
-            @Value("${app.github.webhook-secret:}") String webhookSecret) {
+            @Value("${app.github.webhook-secret:}") String webhookSecret,
+            @Value("${app.sonar.webhook-secret:}") String sonarSecret) {
         this.webhookSecret = webhookSecret;
+        this.sonarSecret = sonarSecret;
     }
 
     @Override
     protected boolean shouldNotFilter(HttpServletRequest request) {
-        return !WEBHOOK_PATH.equals(request.getServletPath());
+        return !WEBHOOK_PATH.equals(request.getServletPath())
+                && !"/api/v1/webhooks/sonar".equals(request.getServletPath());
     }
 
     @Override
     protected void doFilterInternal(HttpServletRequest request, HttpServletResponse response,
                                     FilterChain filterChain) throws ServletException, IOException {
-        if (webhookSecret == null || webhookSecret.isBlank()) {
+        boolean sonar = "/api/v1/webhooks/sonar".equals(request.getServletPath());
+        String secret = sonar ? sonarSecret : webhookSecret;
+        if (secret == null || secret.isBlank()) {
             writeError(response, HttpServletResponse.SC_SERVICE_UNAVAILABLE,
-                    "GitHub webhook secret is not configured");
+                    "Webhook secret is not configured");
             return;
         }
 
@@ -59,16 +65,19 @@ public class GitHubWebhookSignatureFilter extends OncePerRequestFilter {
                     "GitHub webhook payload exceeds the maximum supported size");
             return;
         }
-        if (!isValidSignature(request.getHeader(SIGNATURE_HEADER), requestBody)) {
+        String signature = sonar ? request.getHeader("X-Sonar-Webhook-HMAC-SHA256")
+                : request.getHeader(SIGNATURE_HEADER);
+        if (sonar && signature != null) { signature = SHA256_PREFIX + signature; }
+        if (!isValidSignature(signature, requestBody, secret)) {
             writeError(response, HttpServletResponse.SC_UNAUTHORIZED,
-                    "GitHub webhook signature is missing or invalid");
+                    "Webhook signature is missing or invalid");
             return;
         }
 
         filterChain.doFilter(new CachedBodyRequest(request, requestBody), response);
     }
 
-    private boolean isValidSignature(String signatureHeader, byte[] requestBody) {
+    private boolean isValidSignature(String signatureHeader, byte[] requestBody, String secret) {
         if (signatureHeader == null || !signatureHeader.startsWith(SHA256_PREFIX)) {
             return false;
         }
@@ -85,7 +94,7 @@ public class GitHubWebhookSignatureFilter extends OncePerRequestFilter {
 
         try {
             Mac mac = Mac.getInstance("HmacSHA256");
-            mac.init(new SecretKeySpec(webhookSecret.getBytes(StandardCharsets.UTF_8), "HmacSHA256"));
+            mac.init(new SecretKeySpec(secret.getBytes(StandardCharsets.UTF_8), "HmacSHA256"));
             byte[] expectedSignature = mac.doFinal(requestBody);
             return MessageDigest.isEqual(expectedSignature, receivedSignature);
         } catch (GeneralSecurityException exception) {

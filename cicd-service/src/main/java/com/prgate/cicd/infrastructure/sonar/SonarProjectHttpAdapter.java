@@ -50,7 +50,9 @@ public class SonarProjectHttpAdapter implements SonarProjectProvisioningPort {
             return;
         }
         // A concurrent request may have created the same key. Do not accept arbitrary errors as success.
-        if ((response.statusCode() == 400 || response.statusCode() == 409) && exists(key)) { return; }
+        if ((response.statusCode() == 400 || response.statusCode() == 409) && exists(key)) {
+            return;
+        }
         throw new IllegalStateException("Sonar project creation failed with HTTP " + response.statusCode());
     }
 
@@ -65,6 +67,22 @@ public class SonarProjectHttpAdapter implements SonarProjectProvisioningPort {
         } catch (IOException exception) {
             throw new IllegalStateException("Sonar returned an invalid response");
         }
+    }
+
+
+    public String resolveAnalysisId(String taskId, String projectKey) {
+        if (token == null || token.isBlank()) { throw new IllegalStateException("SONAR_TOKEN is not configured"); }
+        var response = send(request("/api/ce/task?id=" + encode(taskId)).GET().build());
+        if (response.statusCode() != 200) { throw new IllegalStateException("Cannot retrieve Sonar task"); }
+        try {
+            var task = json.readTree(response.body()).path("task");
+            if (!"SUCCESS".equals(task.path("status").asText())
+                    || !projectKey.equals(task.path("componentKey").asText())
+                    || task.path("analysisId").asText().isBlank()) {
+                throw new IllegalStateException("Sonar task does not confirm a matching successful analysis");
+            }
+            return task.path("analysisId").asText();
+        } catch (IOException exception) { throw new IllegalStateException("Invalid Sonar task response"); }
     }
 
     private HttpRequest.Builder request(String path) {

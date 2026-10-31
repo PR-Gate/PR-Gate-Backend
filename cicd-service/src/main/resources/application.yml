@@ -27,6 +27,7 @@ app:
   sonar:
     base-url: ${SONAR_BASE_URL:http://localhost:9000}
     token: ${SONAR_TOKEN:}
+    webhook-secret: ${SONAR_WEBHOOK_SECRET:}
   github:
     evaluation-workflow-name: ${GITHUB_EVALUATION_WORKFLOW_NAME:PRGate Evaluation}
     webhook-secret: ${GITHUB_WEBHOOK_SECRET:}

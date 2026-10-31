@@ -35,6 +35,19 @@ public final class PipelineRun {
     private Instant completedAt;
     private Instant updatedAt;
     private SonarAnalysisResult sonarAnalysis;
+    private com.prgate.cicd.domain.model.valueobject.PipelineProjectReference projectReference;
+
+    public void associateWith(com.prgate.cicd.domain.model.valueobject.PipelineProjectReference reference) {
+        Objects.requireNonNull(reference, "Project reference is required");
+        if (projectReference != null && !projectReference.equals(reference)) {
+            throw new IllegalStateException("A recorded pipeline cannot change its academic association");
+        }
+        projectReference = reference;
+    }
+
+    public Optional<com.prgate.cicd.domain.model.valueobject.PipelineProjectReference> getProjectReference() {
+        return Optional.ofNullable(projectReference);
+    }
 
     private PipelineRun(PipelineRunId id, GitHubWorkflowRunId githubRunId, GitHubRunAttempt githubRunAttempt,
                         GitHubRepository repository,

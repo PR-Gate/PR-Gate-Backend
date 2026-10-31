@@ -18,17 +18,20 @@ public final class RecordGitHubWorkflowRunService implements RecordGitHubWorkflo
     private final WebhookDeliveryRepository webhookDeliveryRepository;
     private final Clock clock;
     private final String dedicatedWorkflowName;
+    private final com.prgate.cicd.application.port.out.EvaluationRepositoryLookupPort evaluationRepositories;
 
     public RecordGitHubWorkflowRunService(PipelineRunRepository pipelineRunRepository,
                                           WebhookDeliveryRepository webhookDeliveryRepository,
                                           Clock clock,
-                                          String dedicatedWorkflowName) {
+                                          String dedicatedWorkflowName,
+                                          com.prgate.cicd.application.port.out.EvaluationRepositoryLookupPort evaluationRepositories) {
         this.pipelineRunRepository = Objects.requireNonNull(pipelineRunRepository,
                 "Pipeline run repository is required");
         this.webhookDeliveryRepository = Objects.requireNonNull(webhookDeliveryRepository,
                 "Webhook delivery repository is required");
         this.clock = Objects.requireNonNull(clock, "Clock is required");
         this.dedicatedWorkflowName = requireWorkflowName(dedicatedWorkflowName);
+        this.evaluationRepositories = Objects.requireNonNull(evaluationRepositories);
     }
 
     @Override
@@ -36,6 +39,11 @@ public final class RecordGitHubWorkflowRunService implements RecordGitHubWorkflo
         Objects.requireNonNull(event, "Workflow run event is required");
         if (!dedicatedWorkflowName.equals(event.workflowName())) {
             return Result.IGNORED_WORKFLOW;
+        }
+
+        var evaluationRepository = evaluationRepositories.findByGithubRepositoryId(event.repository().id());
+        if (evaluationRepository.isEmpty()) {
+            return Result.IGNORED_UNREGISTERED_REPOSITORY;
         }
 
         if (!webhookDeliveryRepository.claimIfUnprocessed(event.deliveryId(), clock.instant())) {
@@ -46,6 +54,9 @@ public final class RecordGitHubWorkflowRunService implements RecordGitHubWorkflo
                 .findByGitHubIdentity(event.repository(), event.runId(), event.attempt())
                 .orElseGet(() -> newPipelineRun(event));
 
+        var enrollment = evaluationRepository.orElseThrow();
+        pipelineRun.associateWith(new com.prgate.cicd.domain.model.valueobject.PipelineProjectReference(
+                enrollment.getId(), enrollment.getProjectId()));
         applyAction(pipelineRun, event);
         pipelineRunRepository.save(pipelineRun);
         return Result.RECORDED;
@@ -76,7 +87,12 @@ public final class RecordGitHubWorkflowRunService implements RecordGitHubWorkflo
                 // A newly created aggregate is already queued.
             }
             case IN_PROGRESS -> pipelineRun.start(event.startedAt());
-            case COMPLETED -> { if (pipelineRun.getStatus() == PipelineRunStatus.QUEUED && event.startedAt() != null) { pipelineRun.start(event.startedAt()); } pipelineRun.complete(event.conclusion(), event.completedAt()); }
+            case COMPLETED -> {
+                if (pipelineRun.getStatus() == PipelineRunStatus.QUEUED && event.startedAt() != null) {
+                    pipelineRun.start(event.startedAt());
+                }
+                pipelineRun.complete(event.conclusion(), event.completedAt());
+            }
         }
     }
 

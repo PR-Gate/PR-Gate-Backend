@@ -18,6 +18,15 @@ import java.util.Objects;
 public class UseCaseConfiguration {
 
     @Bean
+    com.prgate.cicd.application.port.in.RecordSonarAnalysisUseCase recordSonarAnalysisUseCase(
+            com.prgate.cicd.application.port.out.EvaluationRepositoryLookupPort registrations,
+            PipelineRunRepository runs, PlatformTransactionManager transactionManager) {
+        var service = new com.prgate.cicd.application.service.RecordSonarAnalysisService(registrations, runs);
+        var transaction = new TransactionTemplate(transactionManager);
+        return command -> transaction.executeWithoutResult(status -> service.record(command));
+    }
+
+    @Bean
     com.prgate.cicd.application.port.in.ConfigureRepositoryEvaluationUseCase configureRepositoryEvaluationUseCase(
             com.prgate.cicd.application.port.in.RegisterEvaluationRepositoryUseCase registration,
             com.prgate.cicd.application.port.in.ProvisionEvaluationRepositoryUseCase provisioning,
@@ -62,9 +71,10 @@ public class UseCaseConfiguration {
             WebhookDeliveryRepository webhookDeliveryRepository,
             Clock clock,
             PlatformTransactionManager transactionManager,
-            @Value("${app.github.evaluation-workflow-name:PRGate Evaluation}") String workflowName) {
+            @Value("${app.github.evaluation-workflow-name:PRGate Evaluation}") String workflowName,
+            com.prgate.cicd.application.port.out.EvaluationRepositoryLookupPort evaluationRepositories) {
         RecordGitHubWorkflowRunService service = new RecordGitHubWorkflowRunService(
-                pipelineRunRepository, webhookDeliveryRepository, clock, workflowName);
+                pipelineRunRepository, webhookDeliveryRepository, clock, workflowName, evaluationRepositories);
         TransactionTemplate transactionTemplate = new TransactionTemplate(transactionManager);
         return event -> Objects.requireNonNull(
                 transactionTemplate.execute(status -> service.record(event)),

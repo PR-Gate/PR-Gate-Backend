@@ -18,6 +18,23 @@ import java.util.Objects;
 public class UseCaseConfiguration {
 
     @Bean
+    com.prgate.cicd.application.port.in.ProvisionEvaluationRepositoryUseCase provisionEvaluationRepositoryUseCase(
+            com.prgate.cicd.application.port.out.RepositoryProvisioningStatePort state,
+            com.prgate.cicd.application.port.out.SonarProjectProvisioningPort sonar, Clock clock,
+            PlatformTransactionManager transactionManager) {
+        var service = new com.prgate.cicd.application.service.ProvisionEvaluationRepositoryService(state, sonar, clock);
+        var transaction = new TransactionTemplate(transactionManager);
+        transaction.setPropagationBehavior(org.springframework.transaction.TransactionDefinition.PROPAGATION_NOT_SUPPORTED);
+        return id -> Objects.requireNonNull(transaction.execute(status -> service.provision(id)));
+    }
+
+    @Bean
+    com.prgate.cicd.application.port.in.RegisterEvaluationRepositoryUseCase registerEvaluationRepositoryUseCase(
+            com.prgate.cicd.application.port.out.EvaluationRepositoryRegistrationPort registrationPort, Clock clock) {
+        return new com.prgate.cicd.application.service.RegisterEvaluationRepositoryService(registrationPort, clock);
+    }
+
+    @Bean
     com.prgate.cicd.application.port.in.QueryPipelineRunsUseCase queryPipelineRunsUseCase(
             com.prgate.cicd.application.port.out.PipelineRunQueryPort queryPort) {
         return new com.prgate.cicd.application.service.QueryPipelineRunsService(queryPort);

@@ -42,6 +42,19 @@ public final class EvaluationRepository {
     }
 
     public void markProvisioned(Instant now) { transitionTo(RepositoryProvisioningStatus.READY, now); }
+
+    public static EvaluationRepository reconstitute(EvaluationRepositoryId id, AcademicProjectId projectId,
+            GitHubRepository repository, String branch, Instant registeredAt, Instant updatedAt,
+            RepositoryProvisioningStatus status) {
+        EvaluationRepository result = register(id, projectId, repository, branch, registeredAt);
+        Objects.requireNonNull(updatedAt, "Update time is required");
+        if (updatedAt.isBefore(registeredAt)) {
+            throw new IllegalArgumentException("Update time cannot precede registration");
+        }
+        result.updatedAt = updatedAt;
+        result.status = Objects.requireNonNull(status, "Provisioning status is required");
+        return result;
+    }
     public void markProvisioningFailed(Instant now) { transitionTo(RepositoryProvisioningStatus.FAILED, now); }
 
     public void retryProvisioning(Instant now) {

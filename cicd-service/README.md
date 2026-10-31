@@ -45,4 +45,10 @@ Las tablas y el historial de Flyway usan el esquema cicd dentro de pr-gate. Las 
 
 ## Evaluaci√≥n centralizada
 
-PRGate administrar√° una instancia de SonarQube Community Build. Los alumnos autorizar√°n la GitHub App desde la web; no necesitan cuentas de SonarQube Cloud. Community Build analizar√° una rama configurada por repositorio. El agregado EvaluationRepository vincula el UUID del proyecto acad√©mico con GitHub y una clave Sonar estable. Modela los estados PENDING, READY y FAILED; todav√≠a falta implementar su registro persistente y el aprovisionamiento remoto. READY significa configuraci√≥n completada, no Quality Gate aprobado.
+PRGate administrar√° una instancia de SonarQube Community Build. Los alumnos autorizar√°n la GitHub App desde la web; no necesitan cuentas de SonarQube Cloud. Community Build analizar√° una rama configurada por repositorio. El agregado EvaluationRepository vincula el UUID del proyecto acad√©mico con GitHub y una clave Sonar estable. Modela los estados PENDING, READY y FAILED; su registro persistente est√° implementado y el aprovisionamiento remoto sigue pendiente. READY significa configuraci√≥n completada, no Quality Gate aprobado.
+
+## Aprovisionamiento SonarQube
+
+El caso de uso ProvisionEvaluationRepositoryUseCase crea o comprueba el proyecto remoto por su clave estable y persiste READY o FAILED. Permite reintentar FAILED y recuperar PENDING tras una interrupciÛn. No mantiene transacciones de base de datos durante HTTP. TodavÌa no se dispara autom·ticamente desde el registro ni tiene endpoint p˙blico; la instalaciÛn GitHub y la ejecuciÛn del scanner siguen pendientes.
+
+Configurar SONAR_BASE_URL y SONAR_TOKEN seg˙n .env.example. Usar un token User de una cuenta tÈcnica con Create Projects y Browse sobre los proyectos privados creados (configurable mediante plantilla de permisos). Nunca guardar el token real en Git. La API utilizada debe confirmarse contra /web_api de la versiÛn de Community Build desplegada. READY confirma existencia del proyecto, no ejecuciÛn del scanner ni Quality Gate aprobado.

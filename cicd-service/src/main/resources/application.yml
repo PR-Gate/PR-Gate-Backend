@@ -1,0 +1,46 @@
+spring:
+  config:
+    import: optional:file:.env[.properties]
+  application:
+    name: cicd-service
+  datasource:
+    url: ${DB_URL:jdbc:postgresql://localhost:5432/pr-gate}
+    username: ${DB_USERNAME}
+    password: ${DB_PASSWORD}
+  jpa:
+    properties:
+      hibernate:
+        default_schema: cicd
+    open-in-view: false
+    hibernate:
+      ddl-auto: validate
+  flyway:
+    default-schema: cicd
+    schemas: cicd
+    enabled: true
+    locations: classpath:db/migration
+
+server:
+  port: ${SERVER_PORT:8082}
+
+app:
+  sonar:
+    base-url: ${SONAR_BASE_URL:http://localhost:9000}
+    token: ${SONAR_TOKEN:}
+    webhook-secret: ${SONAR_WEBHOOK_SECRET:}
+  github:
+    evaluation-workflow-name: ${GITHUB_EVALUATION_WORKFLOW_NAME:PRGate Evaluation}
+    webhook-secret: ${GITHUB_WEBHOOK_SECRET:}
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health
+  endpoint:
+    health:
+      show-details: never
+
+springdoc:
+  swagger-ui:
+    persist-authorization: false

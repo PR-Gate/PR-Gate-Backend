@@ -1,6 +1,14 @@
 ﻿spring:
   application:
     name: users-service
+  datasource:
+    url: ${SPRING_DATASOURCE_URL:jdbc:postgresql://localhost:5432/prgate_users}
+    username: ${SPRING_DATASOURCE_USERNAME:prgate}
+    password: ${SPRING_DATASOURCE_PASSWORD:prgate_local}
+  jpa:
+    open-in-view: false
+    hibernate:
+      ddl-auto: ${SPRING_JPA_HIBERNATE_DDL_AUTO:update}
 
 server:
   port: ${SERVER_PORT:8080}
@@ -10,3 +18,7 @@ springdoc:
     path: ${SPRINGDOC_API_DOCS_PATH:/v3/api-docs}
   swagger-ui:
     path: ${SPRINGDOC_SWAGGER_UI_PATH:/swagger-ui.html}
+
+prgate:
+  internal:
+    service-token: ${INTERNAL_SERVICE_TOKEN:dev-only-internal-token}

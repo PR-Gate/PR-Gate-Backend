@@ -3,12 +3,15 @@ package com.prgate.users.domain.model;
 import com.prgate.users.domain.event.*;
 import com.prgate.users.domain.exception.InvalidUserStateException;
 import java.time.Instant;
+import jakarta.persistence.*;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Objects;
 import java.util.UUID;
 import java.util.regex.Pattern;
 
+@Entity
+@Table(name = "users")
 public class User {
     private static final int MAX_FIRST_NAME = 100;
     private static final int MAX_LAST_NAME = 100;
@@ -16,16 +19,32 @@ public class User {
     private static final int MAX_CONTACT_EMAIL = 254;
     private static final Pattern EMAIL_PATTERN = Pattern.compile("^[^@\\s]+@[^@\\s]+\\.[^@\\s]+$");
 
-    private final UUID id;
-    private final String cognitoSub;
+    @Id
+    private UUID id;
+    @Column(nullable = false, unique = true, length = 128, updatable = false)
+    private String cognitoSub;
+    @Column(nullable = false, length = 100)
     private String firstName;
+    @Column(nullable = false, length = 100)
     private String lastName;
+    @Column(length = 254)
     private String contactEmail;
+    @Enumerated(EnumType.STRING)
+    @Column(nullable = false)
     private UserRole role;
+    @Enumerated(EnumType.STRING)
+    @Column(nullable = false)
     private UserStatus status;
-    private final Instant createdAt;
+    @Column(nullable = false, updatable = false)
+    private Instant createdAt;
+    @Column(nullable = false)
     private Instant updatedAt;
+    @Transient
     private final List<DomainEvent> pendingEvents = new ArrayList<>();
+
+    protected User() {
+        // Required by JPA.
+    }
 
     private User(UUID id,
             String cognitoSub,

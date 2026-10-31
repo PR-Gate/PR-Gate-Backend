@@ -1,1 +1,12 @@
-﻿# Docker compose para desarrollo
+services:
+  users-service:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    image: users-service:0.0.1
+    container_name: users-service
+    ports:
+      - "${SERVER_PORT:-8080}:8080"
+    env_file:
+      - .env
+    restart: unless-stopped

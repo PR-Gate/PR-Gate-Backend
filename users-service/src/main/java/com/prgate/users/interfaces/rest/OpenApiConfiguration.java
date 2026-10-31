@@ -1,7 +1,9 @@
 package com.prgate.users.interfaces.rest;
 
+import io.swagger.v3.oas.models.Components;
 import io.swagger.v3.oas.models.OpenAPI;
 import io.swagger.v3.oas.models.info.Info;
+import io.swagger.v3.oas.models.security.SecurityScheme;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 
@@ -12,8 +14,13 @@ public class OpenApiConfiguration {
     public OpenAPI usersOpenAPI() {
         return new OpenAPI()
                 .info(new Info()
-                        .title("EduGate Users API")
-                        .description("API del microservicio de usuarios")
-                        .version("v1"));
+                        .title("PRGate Users API")
+                        .description("API del microservicio de usuarios de PRGate")
+                        .version("v1"))
+                .components(new Components()
+                        .addSecuritySchemes("serviceBearer", new SecurityScheme()
+                                .type(SecurityScheme.Type.HTTP)
+                                .scheme("bearer")
+                                .description("Token de servicio compartido con el microservicio de Proyectos")));
     }
 }

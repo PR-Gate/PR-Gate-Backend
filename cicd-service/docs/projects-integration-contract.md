@@ -27,10 +27,19 @@ con `ConfigureRepositoryEvaluationCommand`:
 - `analysisBranch`: rama elegida para evaluación. Community Build mantiene una
   rama principal de análisis por proyecto técnico; no debe asumirse siempre `main`.
 
-Este contrato es una propuesta para coordinar con Projects; no se ha comprobado
-contra su implementación porque está en otra rama. Projects debe validar permisos,
-existencia del proyecto y asociación del repositorio antes de emitir estos datos.
-La futura instalación de GitHub App debe verificar el acceso real al repositorio.
+Este objeto es una orden interna normalizada, no un evento ya publicado por
+Projects. Al revisar feat-projects el 31 de octubre de 2026 se encontró que
+`LinkedOrganizationResult` devuelve `projectId`, `organizationId` y `login` desde
+`POST /api/v1/projects/{projectId}/organization`. No devuelve todavía repositorios
+individuales ni una rama de evaluación. El consumidor RabbitMQ sigue pendiente.
+
+Por tanto, la integración debe recibir la referencia académica y la organización
+desde Projects, comprobar la instalación de la GitHub App para esa organización,
+obtener los repositorios autorizados mediante GitHub y completar esta orden con
+la configuración técnica de rama. Nunca debe inventar IDs numéricos a partir del
+nombre o asumir que la pertenencia GitHub sustituye la membresía académica.
+La forma del futuro evento de organización se acordará al integrar las ramas;
+el resultado REST existente no debe confundirse con un evento implementado.
 
 ## Procesamiento
 

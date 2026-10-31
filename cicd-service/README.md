@@ -49,8 +49,12 @@ PRGate administrar√° una instancia de SonarQube Community Build. Los alumnos aut
 
 ## Aprovisionamiento SonarQube
 
-El caso de uso ProvisionEvaluationRepositoryUseCase crea o comprueba el proyecto remoto por su clave estable y persiste READY o FAILED. Permite reintentar FAILED y recuperar PENDING tras una interrupciÛn. No mantiene transacciones de base de datos durante HTTP. TodavÌa no se dispara autom·ticamente desde el registro ni tiene endpoint p˙blico; la instalaciÛn GitHub y la ejecuciÛn del scanner siguen pendientes.
+El caso de uso ProvisionEvaluationRepositoryUseCase crea o comprueba el proyecto remoto por su clave estable y persiste READY o FAILED. Permite reintentar FAILED y recuperar PENDING tras una interrupci√≥n. No mantiene transacciones de base de datos durante HTTP. Todav√≠a no se dispara autom√°ticamente desde el registro ni tiene endpoint p√∫blico; la instalaci√≥n GitHub y la ejecuci√≥n del scanner siguen pendientes.
 
-Configurar SONAR_BASE_URL y SONAR_TOKEN seg˙n .env.example. Usar un token User de una cuenta tÈcnica con Create Projects y Browse sobre los proyectos privados creados (configurable mediante plantilla de permisos). Nunca guardar el token real en Git. La API utilizada debe confirmarse contra /web_api de la versiÛn de Community Build desplegada. READY confirma existencia del proyecto, no ejecuciÛn del scanner ni Quality Gate aprobado.
+Configurar SONAR_BASE_URL y SONAR_TOKEN seg√∫n .env.example. Usar un token User de una cuenta t√©cnica con Create Projects y Browse sobre los proyectos privados creados (configurable mediante plantilla de permisos). Nunca guardar el token real en Git. La API utilizada debe confirmarse contra /web_api de la versi√≥n de Community Build desplegada. READY confirma existencia del proyecto, no ejecuci√≥n del scanner ni Quality Gate aprobado.
 
-La entrada interna ConfigureRepositoryEvaluationUseCase recibe referencias desde Projects y coordina registro tÈcnico y aprovisionamiento Sonar. Consultar docs/projects-integration-contract.md para el contrato propuesto y sus lÌmites. El transporte RabbitMQ est· pendiente. CI/CD no crea proyectos acadÈmicos ni administra grupos.
+La entrada interna ConfigureRepositoryEvaluationUseCase recibe referencias desde Projects y coordina registro t√©cnico y aprovisionamiento Sonar. Consultar docs/projects-integration-contract.md para el contrato propuesto y sus l√≠mites. El transporte RabbitMQ est√° pendiente. CI/CD no crea proyectos acad√©micos ni administra grupos.
+
+## Query access
+
+HTTP pipeline queries now require a verified PRGate identity and a Projects permission decision. No authentication provider or membership adapter is enabled yet; missing identity returns 401 and missing permissions grant no access. See docs/query-authorization.md. The local-pilot verifier uses internal ports without opening HTTP exceptions.

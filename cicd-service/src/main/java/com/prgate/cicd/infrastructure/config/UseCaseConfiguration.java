@@ -18,6 +18,22 @@ import java.util.Objects;
 public class UseCaseConfiguration {
 
     @Bean
+    @org.springframework.boot.autoconfigure.condition.ConditionalOnMissingBean(
+            com.prgate.cicd.application.port.out.ProjectEvaluationAccessPort.class)
+    com.prgate.cicd.application.port.out.ProjectEvaluationAccessPort unavailableProjectAccess() {
+        // Projects remains authoritative; missing integration grants no permissions.
+        return (userId, projectId) -> false;
+    }
+
+    @Bean
+    com.prgate.cicd.application.port.in.AuthorizedPipelineQueriesUseCase authorizedPipelineQueriesUseCase(
+            com.prgate.cicd.application.port.in.QueryPipelineRunsUseCase queries,
+            com.prgate.cicd.application.port.out.EvaluationRepositoryLookupPort repositories,
+            com.prgate.cicd.application.port.out.ProjectEvaluationAccessPort access) {
+        return new com.prgate.cicd.application.service.AuthorizedPipelineQueriesService(queries, repositories, access);
+    }
+
+    @Bean
     com.prgate.cicd.application.port.in.RecordSonarAnalysisUseCase recordSonarAnalysisUseCase(
             com.prgate.cicd.application.port.out.EvaluationRepositoryLookupPort registrations,
             PipelineRunRepository runs, PlatformTransactionManager transactionManager) {

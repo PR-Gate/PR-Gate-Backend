@@ -3,7 +3,7 @@ package com.prgate.cicd.application.model;
 import java.util.Objects;
 import java.util.UUID;
 
-/** Repository association supplied by Projects; this command never creates an academic project. */
+/** Trusted integration command enriched from Projects' organization link and GitHub repository discovery. */
 public record ConfigureRepositoryEvaluationCommand(UUID projectId, long githubRepositoryId,
         String githubOwner, String githubName, String analysisBranch) {
     public ConfigureRepositoryEvaluationCommand {

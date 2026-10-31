@@ -33,21 +33,25 @@ public class LocalPilotRunner implements ApplicationRunner {
     private final String phase;
     private final String revision;
     private final String workflow;
+    private final int waitSeconds;
 
     public LocalPilotRunner(ConfigureRepositoryEvaluationUseCase configure, RecordGitHubWorkflowRunUseCase record,
             PipelineRunQueryPort query, ObjectMapper json, ConfigurableApplicationContext context,
             @Value("${pilot.phase:prepare}") String phase, @Value("${pilot.revision:}") String revision,
-            @Value("${app.github.evaluation-workflow-name}") String workflow) {
+            @Value("${app.github.evaluation-workflow-name}") String workflow,
+            @Value("${pilot.wait-seconds:180}") int waitSeconds) {
         this.configure = configure; this.record = record; this.query = query; this.json = json;
         this.context = context; this.phase = phase; this.revision = revision; this.workflow = workflow;
+        this.waitSeconds = waitSeconds;
     }
 
     @Override
     public void run(ApplicationArguments args) throws Exception {
         try {
-            if ("finish".equals(phase)) { finish(); }
+            if ("verify".equals(phase)) { verify(); }
+            else if ("finish".equals(phase)) { finish(); }
             else if ("prepare".equals(phase)) { prepare(); }
-            else { throw new IllegalArgumentException("Pilot phase must be prepare or finish"); }
+            else { throw new IllegalArgumentException("Pilot phase must be prepare, finish or verify"); }
         } finally { context.close(); }
     }
 
@@ -84,6 +88,38 @@ public class LocalPilotRunner implements ApplicationRunner {
                 Instant.parse(manifest.startedAt()), WorkflowRunAction.COMPLETED, PipelineConclusion.SUCCESS));
         if (result != RecordGitHubWorkflowRunUseCase.Result.RECORDED) { throw new IllegalStateException("Pilot completion rejected"); }
         System.out.println("LOCAL_PILOT_COMPLETED pipeline=" + manifest.pipelineId());
+    }
+
+    private void verify() throws Exception {
+        var manifest = json.readValue(MANIFEST.toFile(), Manifest.class);
+        if (!manifest.synthetic() || !PROJECT_ID.toString().equals(manifest.projectId())
+                || manifest.repositoryId() != REPOSITORY_ID || waitSeconds < 1 || waitSeconds > 600) {
+            throw new IllegalArgumentException("Invalid local pilot verification parameters");
+        }
+        Instant deadline = Instant.now().plusSeconds(waitSeconds);
+        do {
+            var run = query.findById(UUID.fromString(manifest.pipelineId())).orElseThrow();
+            var reference = run.getProjectReference().orElseThrow();
+            if (!reference.projectId().value().equals(PROJECT_ID)
+                    || run.getRepository().id() != REPOSITORY_ID
+                    || !run.getCommitSha().value().equals(manifest.revision())) {
+                throw new IllegalStateException("Pilot correlation mismatch");
+            }
+            if (run.getSonarAnalysis().isPresent()) {
+                var evidence = json.createObjectNode();
+                evidence.put("synthetic", true);
+                evidence.put("id", manifest.pipelineId());
+                evidence.put("academicProjectId", manifest.projectId());
+                evidence.put("commitSha", manifest.revision());
+                evidence.put("status", run.getStatus().name());
+                evidence.set("sonarAnalysis", json.valueToTree(run.getSonarAnalysis().orElseThrow()));
+                json.writerWithDefaultPrettyPrinter().writeValue(Path.of("target", "local-pilot-result.json").toFile(), evidence);
+                System.out.println("LOCAL_PILOT_VERIFIED pipeline=" + manifest.pipelineId());
+                return;
+            }
+            Thread.sleep(3000);
+        } while (Instant.now().isBefore(deadline));
+        throw new IllegalStateException("No Sonar result before pilot timeout; inspect the inbox and webhook delivery");
     }
 
     private GitHubWorkflowRunEvent event(long runId, GitCommitSha sha, Instant started,

@@ -1,0 +1,2 @@
+package com.prgate.ai.domain.model.valueobjects;
+public record RubricCriterion(CriterionId id,String description,String objective) { public RubricCriterion { Checks.present(id); description=Checks.text(description); objective=Checks.text(objective); } }

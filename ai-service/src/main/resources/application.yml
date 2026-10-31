@@ -1,0 +1,9 @@
+spring:
+  application:
+    name: ai-service
+server:
+  port: 8081
+
+openai:
+  api-key: ${OPENAI_API_KEY}
+  model: ${OPENAI_MODEL}

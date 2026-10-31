@@ -1,0 +1,2 @@
+/workspace/src/test/java/com/prgate/ai/domain/DomainModelTest.java
+/workspace/src/test/java/com/prgate/ai/infrastructure/outbound/openai/OpenAiFeedbackAdapterTest.java

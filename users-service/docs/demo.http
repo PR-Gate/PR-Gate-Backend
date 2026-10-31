@@ -1,0 +1,23 @@
+﻿@baseUrl = http://localhost:8080
+@serviceToken = dev-only-internal-token
+@userId = f66317a1-d467-4736-bc2e-e01f9499bc3f
+@missingUserId = 00000000-0000-0000-0000-000000000000
+
+### Usuario existente (200)
+GET {{baseUrl}}/internal/v1/users/{{userId}}
+Authorization: Bearer {{serviceToken}}
+
+### Usuario inexistente (404)
+GET {{baseUrl}}/internal/v1/users/{{missingUserId}}
+Authorization: Bearer {{serviceToken}}
+
+### UUID con formato inválido (400)
+GET {{baseUrl}}/internal/v1/users/not-a-uuid
+Authorization: Bearer {{serviceToken}}
+
+### Sin credenciales (401)
+GET {{baseUrl}}/internal/v1/users/{{userId}}
+
+### Credencial no autorizada (403)
+GET {{baseUrl}}/internal/v1/users/{{userId}}
+Authorization: Bearer token-incorrecto

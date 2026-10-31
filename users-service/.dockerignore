@@ -1,8 +1,0 @@
-﻿target
-.git
-.gitignore
-.idea
-*.iml
-.env
-docs
-README.md

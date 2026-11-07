@@ -13,6 +13,7 @@ import java.net.http.HttpResponse;
 import java.nio.charset.StandardCharsets;
 import java.time.Duration;
 import java.io.IOException;
+import java.time.Instant;
 
 @Component
 public class SonarProjectHttpAdapter implements SonarProjectProvisioningPort {
@@ -37,11 +38,19 @@ public class SonarProjectHttpAdapter implements SonarProjectProvisioningPort {
 
     @Override
     public void ensureProjectExists(EvaluationRepository repository) {
+        ensureProjectExists(repository.getSonarProjectKey().value(),
+                repository.getGithubRepository().fullName(), repository.getAnalysisBranch());
+    }
+
+    public void ensurePilotProjectExists(String projectKey) {
+        ensureProjectExists(projectKey, "PRGate local file pilot " + projectKey, "main");
+    }
+
+    private void ensureProjectExists(String key, String name, String branch) {
         if (token == null || token.isBlank()) { throw new IllegalStateException("SONAR_TOKEN is not configured"); }
-        String key = repository.getSonarProjectKey().value();
         if (exists(key)) { return; }
-        String body = "project=" + encode(key) + "&name=" + encode(repository.getGithubRepository().fullName())
-                + "&visibility=private&mainBranch=" + encode(repository.getAnalysisBranch());
+        String body = "project=" + encode(key) + "&name=" + encode(name)
+                + "&visibility=private&mainBranch=" + encode(branch);
         var response = send(request("/api/projects/create")
                 .header("Content-Type", "application/x-www-form-urlencoded")
                 .POST(HttpRequest.BodyPublishers.ofString(body)).build());
@@ -84,6 +93,52 @@ public class SonarProjectHttpAdapter implements SonarProjectProvisioningPort {
             return task.path("analysisId").asText();
         } catch (IOException exception) { throw new IllegalStateException("Invalid Sonar task response"); }
     }
+
+    public PilotAnalysis awaitPilotAnalysis(String taskId, String projectKey) {
+        Instant deadline = Instant.now().plusSeconds(90);
+        while (Instant.now().isBefore(deadline)) {
+            var response = send(request("/api/ce/task?id=" + encode(taskId)).GET().build());
+            if (response.statusCode() != 200) {
+                throw new IllegalStateException("Cannot retrieve Sonar task; HTTP " + response.statusCode());
+            }
+            try {
+                var task = json.readTree(response.body()).path("task");
+                if (!projectKey.equals(task.path("componentKey").asText())) {
+                    throw new IllegalStateException("Sonar task belongs to a different project");
+                }
+                String status = task.path("status").asText();
+                if ("SUCCESS".equals(status)) {
+                    String analysisId = task.path("analysisId").asText();
+                    if (analysisId.isBlank()) { throw new IllegalStateException("Sonar task has no analysis ID"); }
+                    var gate = send(request("/api/qualitygates/project_status?analysisId=" + encode(analysisId))
+                            .GET().build());
+                    if (gate.statusCode() != 200) {
+                        throw new IllegalStateException("Cannot retrieve Quality Gate; HTTP " + gate.statusCode());
+                    }
+                    String gateStatus = json.readTree(gate.body()).path("projectStatus").path("status").asText();
+                    if (gateStatus.isBlank()) { throw new IllegalStateException("Sonar returned no Quality Gate status"); }
+                    return new PilotAnalysis(analysisId, gateStatus);
+                }
+                if ("FAILED".equals(status) || "CANCELED".equals(status)) {
+                    throw new IllegalStateException("Sonar analysis task ended with status " + status);
+                }
+            } catch (IOException exception) {
+                throw new IllegalStateException("Invalid Sonar task or Quality Gate response", exception);
+            }
+            try { Thread.sleep(2000); }
+            catch (InterruptedException exception) {
+                Thread.currentThread().interrupt();
+                throw new IllegalStateException("Interrupted while waiting for SonarQube", exception);
+            }
+        }
+        throw new IllegalStateException("Sonar analysis did not finish within 90 seconds");
+    }
+
+    public String dashboardUrl(String projectKey) {
+        return baseUrl + "/dashboard?id=" + encode(projectKey);
+    }
+
+    public record PilotAnalysis(String analysisId, String qualityGateStatus) { }
 
     private HttpRequest.Builder request(String path) {
         return HttpRequest.newBuilder(URI.create(baseUrl + path)).timeout(Duration.ofSeconds(15))

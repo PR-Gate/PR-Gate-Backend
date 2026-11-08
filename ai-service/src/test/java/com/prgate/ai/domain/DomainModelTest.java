@@ -14,7 +14,7 @@ class DomainModelTest {
     private final SubmissionReference submission = new SubmissionReference("student-1", "delivery-1", "commit-abc");
 
     private TechnicalAssessmentPlan plan(boolean approve) {
-        var plan = new TechnicalAssessmentPlan(PlanId.create(), new RubricReference("rubric-1", 1),
+        var plan = new TechnicalAssessmentPlan(PlanId.create(), new RubricReference("rubric-1", 1), new SourceLanguage("java"),
             List.of(new RubricCriterion(criterion, "Readable code", "Explain maintainability")),
             List.of(new TechnicalCheck(criterion, CheckMechanism.SONAR_RULE, "java:example", Map.of(), "Readability")));
         if (approve) plan.approve(catalog(true));
@@ -47,9 +47,9 @@ class DomainModelTest {
     @Test void rejectsUncoveredAndDuplicateCriteria() {
         var c = new RubricCriterion(criterion, "Readability", "Improve naming");
         assertThrows(DomainRuleViolation.class, () -> new TechnicalAssessmentPlan(
-            PlanId.create(), new RubricReference("r", 1), List.of(c), List.of()));
+            PlanId.create(), new RubricReference("r", 1), new SourceLanguage("java"), List.of(c), List.of()));
         assertThrows(DomainRuleViolation.class, () -> new TechnicalAssessmentPlan(
-            PlanId.create(), new RubricReference("r", 1), List.of(c, c), List.of()));
+            PlanId.create(), new RubricReference("r", 1), new SourceLanguage("java"), List.of(c, c), List.of()));
     }
     @Test void unsupportedCatalogDoesNotPartiallyApprovePlan() {
         var plan = plan(false);

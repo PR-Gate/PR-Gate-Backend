@@ -8,3 +8,6 @@
 
 # Archivos de texto
 *.txt
+
+# Salidas generadas de Maven (todos los servicios)
+**/target/

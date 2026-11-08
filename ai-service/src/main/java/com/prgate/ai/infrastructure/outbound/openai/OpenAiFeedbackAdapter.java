@@ -26,14 +26,15 @@ public class OpenAiFeedbackAdapter implements FeedbackGenerator {
     @org.springframework.beans.factory.annotation.Autowired
     public OpenAiFeedbackAdapter(RestClient.Builder builder, ObjectMapper mapper,
             @Value("${openai.api-key}") String apiKey,
-            @Value("${openai.model}") String model) {
+            @Value("${openai.model}") String model,
+            @Value("${openai.base-url:https://api.openai.com/v1}") String baseUrl) {
         if (apiKey.isBlank() || model.isBlank()) {
             throw new IllegalArgumentException("Configure OPENAI_API_KEY and OPENAI_MODEL");
         }
         var factory = new JdkClientHttpRequestFactory(HttpClient.newBuilder()
                 .connectTimeout(Duration.ofSeconds(10)).build());
         factory.setReadTimeout(Duration.ofSeconds(60));
-        this.client = builder.baseUrl("https://api.openai.com/v1")
+        this.client = builder.clone().baseUrl(baseUrl)
                 .requestFactory(factory)
                 .defaultHeader("Authorization", "Bearer " + apiKey).build();
         this.mapper = mapper;

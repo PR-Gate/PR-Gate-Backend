@@ -1,0 +1,8 @@
+# Only Maven inputs enter the build context.
+**
+!pom.xml
+!src/
+!src/**
+# Keep environment files excluded even if placed under src.
+**/.env
+**/.env.*

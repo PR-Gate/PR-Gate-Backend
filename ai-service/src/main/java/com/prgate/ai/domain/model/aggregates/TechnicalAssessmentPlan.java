@@ -9,15 +9,17 @@ import static com.prgate.ai.domain.model.valueobjects.Checks.*;
 public final class TechnicalAssessmentPlan {
     private final PlanId id;
     private final RubricReference rubric;
+    private final SourceLanguage language;
     private final List<RubricCriterion> criteria;
     private final List<TechnicalCheck> checks;
     private PlanStatus status = PlanStatus.DRAFT;
     private String catalogVersion;
 
-    public TechnicalAssessmentPlan(PlanId id, RubricReference rubric, List<RubricCriterion> criteria,
+    public TechnicalAssessmentPlan(PlanId id, RubricReference rubric, SourceLanguage language, List<RubricCriterion> criteria,
             List<TechnicalCheck> checks) {
         this.id = present(id);
         this.rubric = present(rubric);
+        this.language = present(language);
         this.criteria = List.copyOf(present(criteria));
         this.checks = List.copyOf(present(checks));
         require(!this.criteria.isEmpty(), "plan requires criteria");
@@ -40,12 +42,29 @@ public final class TechnicalAssessmentPlan {
         status = PlanStatus.APPROVED;
     }
 
+    /** Rehydrate a previously validated plan without consulting a mutable external catalog. */
+    public static TechnicalAssessmentPlan restore(PlanId id, RubricReference rubric, SourceLanguage language,
+            List<RubricCriterion> criteria, List<TechnicalCheck> checks, PlanStatus status, String catalogVersion) {
+        var plan = new TechnicalAssessmentPlan(id, rubric, language, criteria, checks);
+        present(status);
+        if (status == PlanStatus.APPROVED) {
+            plan.catalogVersion = text(catalogVersion);
+            plan.status = status;
+        } else {
+            require(catalogVersion == null, "draft plan cannot have approved catalog version");
+        }
+        return plan;
+    }
     public PlanId id() {
         return id;
     }
 
     public RubricReference rubric() {
         return rubric;
+    }
+
+    public SourceLanguage language() {
+        return language;
     }
 
     public List<RubricCriterion> criteria() {

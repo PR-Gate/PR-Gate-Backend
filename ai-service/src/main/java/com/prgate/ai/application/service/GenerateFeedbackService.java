@@ -36,10 +36,11 @@ public final class GenerateFeedbackService implements GenerateFeedbackUseCase {
             result = generator.generate(request);
             if (result == null) throw new FeedbackGenerationException("Feedback generation returned no result");
             assessment.completeFeedback(result.summary(), result.feedback());
-        } catch (FeedbackGenerationException | DomainRuleViolation ex) {
+        } catch (FeedbackGenerationException | AiGenerationException | DomainRuleViolation ex) {
             // Persist only a safe category, not untrusted provider messages.
             assessment.fail("FEEDBACK_GENERATION_FAILED");
             assessments.save(assessment);
+            if (ex instanceof AiGenerationException failure) throw failure;
             if (ex instanceof FeedbackGenerationException failure) throw failure;
             throw new FeedbackGenerationException("Generated feedback contains invalid evidence");
         }

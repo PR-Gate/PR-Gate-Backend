@@ -24,7 +24,7 @@ import static org.junit.jupiter.api.Assertions.*;
 /** Real Spring + HTTP + Flyway + SQL. Only external HTTP services have deterministic fixtures. */
 @SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT, properties = {
         "spring.datasource.url=jdbc:h2:mem:api-integration;DB_CLOSE_DELAY=-1",
-        "openai.api-key=integration-only", "openai.model=integration-model",
+        "ai.provider=openai", "openai.api-key=integration-only", "openai.model=integration-model",
         "prgate.internal.service-token=integration-service"
 })
 class AiApiIntegrationTest {

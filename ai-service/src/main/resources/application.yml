@@ -13,8 +13,8 @@ server:
     include-message: never
     include-stacktrace: never
 openai:
-  api-key: ${OPENAI_API_KEY}
-  model: ${OPENAI_MODEL}
+  api-key: ${OPENAI_API_KEY:}
+  model: ${OPENAI_MODEL:}
   base-url: ${OPENAI_BASE_URL:https://api.openai.com/v1}
 sonar:
   base-url: ${SONAR_HOST_URL:http://localhost:9000}
@@ -22,3 +22,9 @@ sonar:
 prgate:
   internal:
     service-token: ${INTERNAL_SERVICE_TOKEN}
+ai:
+  provider: ${AI_PROVIDER:openai}
+gemini:
+  api-key: ${GEMINI_API_KEY:}
+  model: ${GEMINI_MODEL:gemini-3.8-flash}
+  base-url: ${GEMINI_BASE_URL:https://generativelanguage.googleapis.com/v1beta}

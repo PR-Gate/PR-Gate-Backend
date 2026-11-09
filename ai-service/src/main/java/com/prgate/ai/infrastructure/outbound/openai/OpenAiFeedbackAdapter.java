@@ -18,6 +18,7 @@ import java.util.*;
 import java.util.stream.Collectors;
 
 @Component
+@org.springframework.boot.autoconfigure.condition.ConditionalOnProperty(prefix = "ai", name = "provider", havingValue = "openai", matchIfMissing = true)
 public class OpenAiFeedbackAdapter implements FeedbackGenerator {
     private final RestClient client;
     private final ObjectMapper mapper;

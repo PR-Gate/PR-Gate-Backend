@@ -445,16 +445,10 @@ Desde Docker Desktop, `localhost` es el contenedor. Para SonarQube o PostgreSQL
 en la PC se utiliza `host.docker.internal`; para otro contenedor de la misma
 red se utiliza su nombre de servicio.
 
-Para ejecutar IA fuera de Docker, desde su carpeta:
-
-```powershell
-.\run-local.ps1
-```
-
-El script carga las variables permitidas de `.env` y respeta las ya existentes
-en el proceso. Spring Boot por sí solo no carga ese archivo. Para métricas,
-la estructura permite `mvn spring-boot:run` desde `metrics-service`, pero aún
-no expone funcionalidad de rúbricas.
+El arranque documentado de IA se realiza mediante Docker Compose desde la raíz.
+Se eliminó el script de arranque local para mantener una sola guía de ejecución.
+Para métricas, la estructura permite ejecutar Maven desde metrics-service,
+pero aún no expone funcionalidad de rúbricas.
 
 Swagger de usuarios: `http://localhost:8080/swagger-ui.html`.
 Swagger de IA: `http://localhost:8081/swagger-ui/index.html`.
@@ -613,3 +607,107 @@ leyeron sus controladores, adaptadores, repositorios y migración SQL.
 
 Este archivo es documentación: no cambia código, credenciales, datos ni
 configuración de ejecución. No implica commit, push o despliegue.
+
+## 16. Integración Gemini (8 de noviembre de 2026)
+
+El servicio permite seleccionar un único proveedor mediante AI_PROVIDER: openai
+(predeterminado para compatibilidad) o gemini. Los puertos, dominio, persistencia
+y endpoints existentes se conservan. No hay cambio automático de proveedor.
+
+Para Gemini configurar en ai-service/.env:
+
+    AI_PROVIDER=gemini
+    GEMINI_API_KEY=<clave privada de Google AI Studio>
+    GEMINI_MODEL=gemini-3.8-flash
+
+La clave de Gemini se envía por x-goog-api-key. GeminiClient usa la API nativa
+v1beta, models/{model}:generateContent, con JSON Schema para las respuestas.
+GeminiRubricAdapter implementa la traducción de rúbricas y GeminiFeedbackAdapter
+la retroalimentación con referencias a criterios y evidencias existentes.
+Los adaptadores rechazan respuestas incompletas, bloqueadas o inconsistentes.
+Los errores públicos incluyen códigos GEMINI_* y upstreamStatus cuando existe,
+sin exponer credenciales ni el cuerpo de error del proveedor.
+
+Docker Compose carga las variables mediante env_file. Desde la raíz:
+
+    docker compose build ai-service
+    docker compose up -d --no-deps --force-recreate ai-service
+
+Swagger continúa en http://localhost:8081/swagger-ui/index.html. El bearer del
+servicio sigue siendo INTERNAL_SERVICE_TOKEN; no colocar allí la clave Gemini.
+
+Validación local: 55 pruebas aprobadas y una prueba real optativa omitida en la
+suite habitual. Las pruebas locales usan HTTP local y H2 en memoria.
+Posteriormente se aprobaron 11 pruebas de adaptadores y diagnóstico.
+
+Estado actual: el usuario confirmó desde Swagger una generación real exitosa
+mediante POST /api/technical-plans, con respuesta HTTP 201 Created. El plan se
+creó en estado DRAFT y tradujo el criterio de evitar variables locales sin uso
+a un check SONAR_RULE con target java:S1481 y su justificación. La respuesta
+incluyó el identificador del plan y la cabecera Location. Esta comprobación fue
+realizada por el usuario; no requiere acceso del asistente a su base de datos.
+
+Antes de esta prueba hubo HTTP 503 del proveedor y GEMINI_CONNECTION_FAILED.
+Se conservan como antecedentes de diagnóstico, no como el estado actual de la
+traducción. No se confirmó la causa de esos fallos ni que el log los resolviera.
+
+La prueba GeminiLiveAdapterTest es optativa con GEMINI_LIVE_TEST=true y requiere
+GEMINI_API_KEY. Hace solicitudes reales y puede consumir cuota. No conecta a DB.
+### Diagnóstico de conexión Gemini
+
+GeminiClient registra a nivel WARN únicamente category y elapsedMs cuando ocurre
+ResourceAccessException. Categorías: DNS, TLS_CERTIFICATE_OR_HANDSHAKE, TIMEOUT,
+CONNECTION_FAILED y NETWORK_IO. No registra mensajes de excepción, stack traces,
+URLs, claves, cabeceras ni contenido de solicitudes. La respuesta pública sigue
+siendo GEMINI_CONNECTION_FAILED. CONNECTION_FAILED no prueba por sí sola que el
+servidor rechazó la conexión; TLS tampoco implica necesariamente un certificado
+inválido. El diagnóstico orienta la siguiente comprobación de red.
+
+Después de reconstruir y reiniciar manualmente, repetir la petición en Swagger y
+consultar docker compose logs --tail=100 ai-service. Buscar la línea
+Gemini connection failed: category=..., elapsedMs=... . Se aprobaron 11 pruebas
+locales de adaptadores y diagnóstico; no se usó la clave real ni PostgreSQL.
+### Continuación después de la primera generación exitosa
+
+Evidencia aportada por el usuario:
+
+- Docker mostró ai-service en estado Up y el puerto 8081 publicado.
+- Spring Boot inició correctamente y conectó a PostgreSQL; Flyway validó la
+  migración V1 y reportó el esquema actualizado. La advertencia de compatibilidad
+  con PostgreSQL 18.6 no impidió el arranque observado.
+- Swagger devolvió 201 Created para la traducción de la rúbrica a un plan DRAFT.
+  Esto confirma esa operación, no el flujo completo con SonarQube o los tests.
+
+Persistencia verificada desde Swagger por el usuario:
+
+- GET /api/technical-plans/c4fe765e-2e09-45db-87a1-397089a85a60 respondió
+  200 OK y devolvió el mismo plan creado por el POST, con estado DRAFT,
+  check SONAR_RULE, target java:S1481 y catalogVersion=null.
+- Los logs compartidos confirman que el servicio utiliza PostgreSQL prgate_ai.
+  El GET exitoso confirma la recuperación del plan mediante el repositorio del
+  servicio; no vuelve a solicitar la generación al LLM.
+- La persistencia de IA utiliza ai_documents y almacena el documento en payload.
+  No se realizó una consulta directa a la base de datos por parte del asistente.
+- GeminiLiveAdapterTest sigue sin conectar a DB: verifica únicamente la
+  integración directa con el proveedor. El flujo probado por Swagger sí incluye
+  la persistencia configurada del servicio.
+
+Siguientes verificaciones, en orden:
+
+1. Aprobar el plan y validar sus checks contra el catálogo real de SonarQube.
+   La respuesta observada tiene catalogVersion=null; no asumir validación del
+   catálogo ni ejecución de la regla por recibir una propuesta del LLM.
+2. Ejecutar el análisis real con SonarQube y registrar sus resultados.
+3. Generar y consultar el feedback basado en las evidencias del análisis.
+4. Verificar el estado de implementación del test de aprendizaje y completar
+   ese flujo antes de declarar terminada la funcionalidad educativa.
+
+La generación, el guardado y la recuperación del plan ya fueron comprobados.
+No se ha verificado aún su conservación después de reiniciar el contenedor ni
+el flujo completo de aprobación, análisis, feedback y test de aprendizaje.
+
+Restricciones explícitas del usuario: no leer ni modificar ningún archivo .env
+sin permiso explícito; indicar los cambios para que los realice él. No acceder a
+su base de datos. No hacer commits ni push. No incluir tokens o claves reales
+en documentación, capturas compartidas o logs. Mantener este documento maestro
+como referencia de contexto, sin recrear los Markdown consolidados eliminados.

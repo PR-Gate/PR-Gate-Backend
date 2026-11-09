@@ -21,6 +21,14 @@ public final class ApiExceptionHandler {
     ProblemDetail domain(DomainRuleViolation ex) { return problem(422, ex.getMessage()); }
     @ExceptionHandler(OptimisticLockingFailureException.class)
     ProblemDetail conflict(Exception ex) { return problem(409, "Resource changed; reload before retrying"); }
+    @ExceptionHandler(AiGenerationException.class)
+    ProblemDetail ai(AiGenerationException ex) {
+        var result = problem(502, ex.reason().detail());
+        result.setProperty("provider", ex.provider().name().toLowerCase(java.util.Locale.ROOT));
+        result.setProperty("code", ex.code());
+        if (ex.upstreamStatus() != null) result.setProperty("upstreamStatus", ex.upstreamStatus());
+        return result;
+    }
     @ExceptionHandler(RubricTranslationException.class)
     ProblemDetail rubric(RubricTranslationException ex) {
         var result = problem(502, ex.reason().detail());

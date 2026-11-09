@@ -16,6 +16,7 @@ import java.util.*;
 import static com.prgate.ai.application.port.out.RubricTranslationException.Reason.*;
 
 @Component
+@org.springframework.boot.autoconfigure.condition.ConditionalOnProperty(prefix = "ai", name = "provider", havingValue = "openai", matchIfMissing = true)
 public final class OpenAiRubricAdapter implements RubricTranslationPort {
     private final RestClient client;
     private final ObjectMapper mapper;

@@ -1,0 +1,8 @@
+server:
+  address: ${SERVER_ADDRESS:127.0.0.1}
+
+spring:
+  datasource:
+    url: ${DB_URL:jdbc:postgresql://localhost:5432/pr-gate}
+    username: ${DB_USERNAME:prgate}
+    password: ${DB_PASSWORD:prgate-local}

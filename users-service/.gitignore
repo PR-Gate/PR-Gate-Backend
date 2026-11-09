@@ -1,8 +1,4 @@
-﻿target/
-.idea/
-*.iml
-.vscode/
-.DS_Store
-*.log
+target/
 .env
-application-local.*
+.env.*
+!.env.example

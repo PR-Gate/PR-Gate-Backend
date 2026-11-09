@@ -1,15 +1,14 @@
-﻿FROM maven:3.9-eclipse-temurin-21 AS build
+FROM maven:3.9.11-eclipse-temurin-21 AS build
 WORKDIR /workspace
 COPY pom.xml .
-RUN mvn -B -q dependency:go-offline
+RUN mvn -B -ntp dependency:go-offline
 COPY src ./src
-RUN mvn -B -q clean package -DskipTests
+RUN mvn -B -ntp -DskipTests package
 
-FROM eclipse-temurin:21-jre-alpine
+FROM eclipse-temurin:21-jre-jammy
+RUN groupadd --system prgate && useradd --system --gid prgate --home-dir /app prgate
 WORKDIR /app
-RUN addgroup -S app && adduser -S app -G app
-COPY --from=build /workspace/target/users-service-*.jar app.jar
-USER app
+COPY --from=build --chown=prgate:prgate /workspace/target/users-service-0.0.1-SNAPSHOT.jar app.jar
+USER prgate
 EXPOSE 8080
-ENV SERVER_PORT=8080
-ENTRYPOINT ["java", "-XX:MaxRAMPercentage=75.0", "-jar", "/app/app.jar"]
+ENTRYPOINT ["java", "-jar", "/app/app.jar"]

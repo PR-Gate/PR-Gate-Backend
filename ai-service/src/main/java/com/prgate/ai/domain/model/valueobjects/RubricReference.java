@@ -1,0 +1,2 @@
+package com.prgate.ai.domain.model.valueobjects;
+public record RubricReference(String id,int version) { public RubricReference { id=Checks.text(id); Checks.require(version>0,"rubric version must be positive"); } }

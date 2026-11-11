@@ -2,3 +2,12 @@
 .env
 .env.*
 !.env.example
+
+# Archivos compilados de Java
+*.class
+
+# Archivos de texto
+*.txt
+
+# Salidas generadas de Maven (todos los servicios)
+**/target/

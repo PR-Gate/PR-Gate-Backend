@@ -1,0 +1,2 @@
+package com.prgate.ai.domain.model.valueobjects;
+public record SubmissionReference(String studentId,String submissionId,String revision) { public SubmissionReference { studentId=Checks.text(studentId); submissionId=Checks.text(submissionId); revision=Checks.text(revision); } }

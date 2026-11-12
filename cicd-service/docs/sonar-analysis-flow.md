@@ -44,9 +44,12 @@ Confirmar permisos/contrato en `/web_api` de la instancia desplegada.
 
 ## Plantilla del scanner
 
-`templates/github-actions/java-maven-evaluation.yml.template` es una plantilla
-para un repositorio Java/Maven, no un workflow instalado. CI ejecuta build y
-pruebas en las ramas; Sonar Community Build se ejecuta solo por push a la rama
+`templates/github-actions/java-maven-evaluation.yml.template` y
+`templates/github-actions/python-evaluation.yml.template` son plantillas para
+repositorios Java/Maven y Python respectivamente, no workflows instalados.
+En Python se comprueba sintaxis y se ejecuta pytest si hay archivos de prueba;
+un script suelto no se ejecuta como parte de la evaluación. CI procesa push y
+pull request; Sonar Community Build se ejecuta solo por push a la rama
 configurada. No se pasan parámetros comerciales de branch/pull request al scanner.
 
 La futura GitHub App administrará la instalación de la plantilla y estas variables:
@@ -58,8 +61,10 @@ del plugin scanner Maven elegida para la instancia antes de publicar el workflow
 
 La URL de Sonar debe ser accesible desde el runner: localhost en GitHub-hosted
 no apunta a la PC del desarrollador. No desplegar el runner de alumnos en el host
-del backend. La generación de cobertura (por ejemplo JaCoCo) debe estar configurada
-en el proyecto; Sonar no ejecuta pruebas ni inventa cobertura.
+del backend. La generación de cobertura (por ejemplo JaCoCo o coverage.py) debe
+estar configurada en el proyecto y entregarse al scanner; Sonar no ejecuta
+pruebas ni inventa cobertura. La plantilla Python aún no publica un reporte de
+cobertura.
 
 ## Pendiente para un piloto completo
 

@@ -21,7 +21,7 @@ public class User {
 
     @Id
     private UUID id;
-    @Column(nullable = false, unique = true, length = 128, updatable = false)
+    @Column(unique = true, length = 128, updatable = false)
     private String cognitoSub;
     @Column(nullable = false, length = 100)
     private String firstName;
@@ -71,7 +71,7 @@ public class User {
             throw new InvalidUserStateException("updatedAt must not be null");
         }
         this.id = id;
-        this.cognitoSub = requireNonEmptyTrimmed(cognitoSub, "cognitoSub", MAX_COGNITO_SUB);
+        this.cognitoSub = cognitoSub == null ? null : requireNonEmptyTrimmed(cognitoSub, "cognitoSub", MAX_COGNITO_SUB);
         this.firstName = normalizeName(firstName, "firstName");
         this.lastName = normalizeName(lastName, "lastName");
         this.contactEmail = normalizeEmail(contactEmail);
@@ -88,6 +88,7 @@ public class User {
             String lastName,
             String contactEmail,
             Instant now) {
+        if (cognitoSub == null) throw new InvalidUserStateException("cognitoSub must not be null");
         Instant time = requireNonNull(now, "now");
         User user = new User(id,
                 cognitoSub,
@@ -107,6 +108,14 @@ public class User {
                 user.role,
                 user.status,
                 time));
+        return user;
+    }
+
+    public static User registerExternal(UUID id, String firstName, String lastName, String email, Instant now) {
+        User user = new User(id, null, firstName, lastName, email,
+                UserRole.STUDENT, UserStatus.ACTIVE, now, now);
+        user.pendingEvents.add(new UserCreated(id, null, firstName, lastName, email,
+                UserRole.STUDENT, UserStatus.ACTIVE, now));
         return user;
     }
 

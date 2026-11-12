@@ -40,15 +40,14 @@ por ejemplo JUnit; no son la misma funcionalidad.
 | --- | --- | --- |
 | `users-service` | Perfiles, vínculo con Cognito, roles y estado del usuario | Implementación de perfiles y contrato interno; autenticación Cognito pendiente |
 | `ai-service` | Planes técnicos, validación contra catálogo, análisis registrados y feedback con OpenAI | Dominio, aplicación, adaptadores, persistencia, REST, Swagger y Docker implementados |
-| `metrics-service` | Administración de rúbricas y sus criterios | Estructura inicial; el dominio y la API de rúbricas aún no están implementados |
+| `metrics-service` | Rúbricas y evaluación determinista de cumplimiento con evidencias de SonarQube | Dominio DDD y políticas implementados; aplicación, persistencia, REST e integraciones pendientes |
 
 Puertos locales por defecto: usuarios `8080`, IA `8081` y métricas `8082`.
 
 **Decisión del equipo:** `metrics-service` será el servicio de rúbricas. Esta
 decisión corrige la ambigüedad de su README, que todavía propone acordar si
-gestionará métricas técnicas o de aprendizaje. Criterios, niveles de logro,
-ponderaciones y versionado forman parte del alcance a modelar, no de una API
-que ya exista.
+gestionará métricas técnicas o de aprendizaje. El dominio actual incluye criterios, ponderaciones, versionado y evaluación binaria.
+Los niveles de logro graduados y la API aún no están implementados.
 
 IA utilizará una referencia y una versión de la rúbrica, junto con los datos
 utilizados en cada plan. No será la fuente oficial del catálogo de rúbricas.
@@ -711,3 +710,334 @@ sin permiso explícito; indicar los cambios para que los realice él. No acceder
 su base de datos. No hacer commits ni push. No incluir tokens o claves reales
 en documentación, capturas compartidas o logs. Mantener este documento maestro
 como referencia de contexto, sin recrear los Markdown consolidados eliminados.
+## 17. Dominio de métricas: etapa 1 (10 de noviembre de 2026)
+
+El alcance acordado comprende administrar rúbricas, recibir referencias de los
+análisis ejecutados por CI/CD, obtener evidencias de SonarQube, calcular el
+cumplimiento y publicar resultados para la plataforma y para IA. Esta primera
+etapa implementa únicamente el dominio y sus políticas, sin endpoints ni DB.
+
+### Agregados y contratos
+
+- Rubric: edición en DRAFT y publicación inmutable en PUBLISHED. La publicación
+  exige criterios con identificadores únicos y pesos positivos que sumen 100.
+  nextVersion crea un borrador con el mismo RubricId y una versión superior;
+  no modifica los snapshots usados por evaluaciones históricas.
+- RubricEvaluationConfiguration: vincula una PublishedRubric con una referencia
+  de plan técnico y checks obligatorios. approve exige cobertura exacta de los
+  criterios y registra TeacherApproval (docente y fecha). Los checks automáticos
+  requieren CatalogValidation del mismo plan y del conjunto exacto de checks,
+  anterior o simultánea a la aprobación. ApprovedConfiguration es un snapshot
+  inmutable. La identidad y autorización del docente deberán verificarse en
+  aplicación; registrar un UUID no equivale a autenticar al docente.
+- SubmissionEvaluation: conserva entrega, estudiante, commit completo, análisis
+  esperado, configuración aprobada, evidencias, revisiones y resumen. Transita
+  PENDING -> RUNNING -> PARTIAL o COMPLETED; un fallo técnico pasa a FAILED y
+  retry vuelve a PENDING manteniendo la identidad. PARTIAL permite incorporar
+  revisiones manuales pendientes. COMPLETED no admite nuevas modificaciones.
+- Contratos de repositorio para los tres agregados, sin implementación todavía.
+  El repositorio de rúbricas identifica cada agregado por RubricId y versión.
+
+### Política de cumplimiento
+
+CompliancePolicy evalúa tres tipos de check: RuleCheck (regla), MetricCheck
+(métrica, operador LT/LTE/EQ/GTE/GT y umbral decimal) y ManualCheck (instrucción).
+Todos son obligatorios en esta versión. El resultado por check y criterio es
+PASSED, FAILED o NOT_EVALUABLE. Si algún check carece de evidencia suficiente,
+el criterio queda NOT_EVALUABLE; si todos son evaluables y alguno falla, FAILED;
+si todos pasan, PASSED. Se conserva el detalle de cada check.
+
+Una regla sin hallazgos solo pasa cuando RuleObservation acredita ejecución y
+evidencia completa del alcance. Sin esas garantías queda NOT_EVALUABLE. Métricas
+sin valor no se convierten en cero. Una revisión manual requiere decisión,
+docente, fecha y justificación; no puede sustituir un check automático.
+
+Se calcula con BigDecimal y se redondea a dos decimales:
+
+    cobertura = suma de pesos de criterios evaluables
+    porcentaje provisional = 100 * peso de criterios PASSED / peso evaluable
+    porcentaje final = porcentaje provisional solo cuando cobertura = 100
+
+Con cobertura cero no existe porcentaje provisional ni final. Un 100 provisional
+con cobertura parcial no es una nota final. Una evaluación puede estar COMPLETED
+con 0 de cumplimiento: COMPLETED significa que terminó de evaluar, no aprobado.
+No se implementan todavía niveles de logro, puntuación parcial dentro de un
+criterio ni pesos propios por check.
+
+### Trazabilidad e integración futura
+
+AnalysisSnapshot conserva SonarAnalysisReference, fecha y observaciones tipadas.
+El agregado exige coincidencia de proyecto, taskId, rama o PR y commit con la
+entrega esperada. El análisis incluye además analysisId. Las observaciones no
+pueden usar checks desconocidos ni cambiar el tipo o target configurados. Los
+hallazgos conservan issueKey, ruleKey, componente, línea opcional y mensaje.
+Se rechazan identificadores de observación y evidencia duplicados.
+
+Los snapshots representan datos normalizados confiables: el futuro adaptador
+SonarQube deberá verificar éxito de la tarea, correlación exacta del análisis,
+activación efectiva de reglas, alcance y paginación completa. Las banderas de
+verificación no deben aceptarse directamente desde un estudiante. El dominio
+por sí solo no consulta ni demuestra estos hechos en SonarQube.
+
+Las métricas están modeladas, pero la aprobación actual de ai-service solo
+soporta SONAR_RULE y MANUAL_REVIEW. Su soporte operativo debe ampliarse antes
+de integrar MetricCheck. El contrato de feedback de IA también deberá admitir
+resultados por criterio y evidencias métricas; aún no existe esa integración.
+
+Validación de etapa 1: 25 pruebas JUnit aprobadas, compilación release 21. Cubren
+versionado e inmutabilidad, pesos, cobertura, aprobación, comparadores de métricas,
+revisión manual, porcentaje parcial/final, evidencias ajenas, correlación de
+análisis y fallos/reintentos. No usan mocks, red, Spring ni bases de datos.
+El dominio solo depende de Java y no importa clases de ai-service.
+
+Continuación: implementar casos de uso y puertos de integración; después
+persistencia PostgreSQL con migraciones y REST/Swagger; luego adaptadores reales
+de SonarQube y de IA, idempotencia y publicación con reintentos. El servicio de
+métricas todavía no expone estas operaciones en la API ni está en Compose.
+## 18. Vinculación de identidad GitHub (11 de noviembre de 2026)
+
+Se implementó en users-service la vinculación de una cuenta GitHub con un usuario
+existente de PR-Gate. La GitHub App fue registrada por el usuario. Este flujo no
+instala la App ni concede acceso a repositorios, organizaciones, Actions o
+Copilot. El LLM continúa siendo independiente de esta integración.
+
+### Configuración y autenticación
+
+La función está desactivada por defecto (GITHUB_ENABLED=false). Para probarla,
+el usuario debe configurar él mismo en users-service/.env, sin compartir valores:
+
+    GITHUB_ENABLED=true
+    GITHUB_CLIENT_ID=<client ID de la GitHub App>
+    GITHUB_CLIENT_SECRET=<secreto privado>
+    GITHUB_REDIRECT_URI=http://localhost:8080/api/integrations/github/callback
+    SPRING_PROFILES_ACTIVE=local
+
+El perfil local permite el header X-User-Id con el UUID de un usuario existente
+y ACTIVE; es una identidad de desarrollo y no debe habilitarse en despliegue.
+No hace falta Cognito para esta prueba local. Fuera de ese perfil, las rutas
+nuevas exigen un access token Cognito: firma RS256, issuer, expiración,
+token_use=access y client_id. Se busca el perfil por sub y se exige ACTIVE.
+Configurar COGNITO_ISSUER_URI y COGNITO_CLIENT_ID y una redirect URI HTTPS que
+coincida con la GitHub App. El callback no recibe el bearer de Cognito.
+
+La autenticación se limita a las nuevas operaciones de vinculación. No completa
+ni cambia la autenticación y autorización pendientes de las rutas antiguas de
+usuarios. Los endpoints internos conservan su token de servicio independiente.
+
+### Flujo y endpoints
+
+| Método | Ruta | Comportamiento |
+| --- | --- | --- |
+| POST | /api/me/integrations/github/authorization | Autentica al usuario y devuelve authorizationUrl y expiresAt; fija cookie HttpOnly |
+| GET | /api/integrations/github/callback | Verifica state y cookie del navegador, canjea code y guarda la identidad |
+| GET | /api/me/integrations/github | Devuelve el vínculo del usuario autenticado; 404 si no existe |
+| DELETE | /api/me/integrations/github | Elimina el vínculo y autorizaciones pendientes del usuario; 204 |
+
+GitHubLinkService coordina el flujo mediante GitHubIdentityProvider y
+GitHubLinkStore. HttpGitHubIdentityProvider usa las URLs oficiales de autorización,
+canje de código y GET /user mediante RestClient, con timeout y errores seguros.
+No solicita scopes adicionales ni envía los secretos al frontend. La selección
+de cuenta se pide con prompt=select_account.
+
+Se usa PKCE S256 y state aleatorio, de un solo uso y con vencimiento de 10 minutos.
+La cookie prgate_github_link vincula el flujo al navegador; es HttpOnly,
+SameSite=Lax, limitada al callback y Secure fuera del perfil local. En DB se
+guardan hashes de state y del secreto de navegador. El verifier es temporal y se
+elimina al finalizar o caducar. Una nueva autorización invalida la anterior.
+El callback no permite escoger userId; lo recupera de la autorización pendiente.
+
+### Persistencia y seguridad del vínculo
+
+V2__github_account_links.sql añade tablas en el esquema users:
+
+- github_account_links: user_id único, github_user_id único, github_login y linked_at.
+- github_authorizations: state_hash, user_id, verifier, browser_hash, expires_at y consumed.
+
+JdbcGitHubLinkStore usa transacciones cortas y bloqueo del usuario para coordinar
+inicio, finalización y desvinculación. La reclamación atómica del estado impide
+callbacks duplicados. Las llamadas a GitHub ocurren fuera de esas transacciones.
+El borrado de pendientes al desvincular impide completar un callback anterior.
+Los estados vencidos se purgan periódicamente cuando la función está habilitada.
+
+No se persisten access tokens ni refresh tokens de GitHub; solo identidad
+verificada. Desvincular en PR-Gate elimina la relación local, no desinstala la App
+ni revoca automáticamente su autorización en GitHub. El usuario puede revocarla
+en la configuración de Authorized GitHub Apps. No se sustituye una cuenta ya
+vinculada: primero se debe desvincular y autorizar de nuevo.
+
+### Prueba manual pendiente por el usuario
+
+Desde la raíz, tras completar la configuración privada:
+
+    docker compose up -d --build --no-deps users-service
+
+Este arranque ejecutará Flyway V2 en la base configurada por el usuario.
+El asistente no ejecutó ese comando ni conectó a dicha base.
+
+1. Abrir Swagger de usuarios en http://localhost:8080/swagger-ui/index.html.
+2. En Authorize, usar githubActor: en local, el UUID del usuario existente.
+3. Ejecutar POST /api/me/integrations/github/authorization.
+4. Abrir authorizationUrl en el mismo navegador, conservando localhost como host.
+5. Autorizar en GitHub; el callback devuelve JSON con el vínculo, no tokens.
+6. Consultar GET /api/me/integrations/github; probar DELETE para desvincular.
+
+El callback no debe ejecutarse manualmente en Swagger. No pegar URLs con code,
+state o credenciales en documentación o capturas compartidas. Las respuestas
+sensibles usan Cache-Control: no-store. Para un frontend separado, conectar el
+botón y las solicitudes con credenciales mediante un proxy del mismo origen o
+una política CORS explícita; esta etapa no configura CORS ni modifica el frontend.
+
+Verificación: 31 pruebas de users-service aprobadas (18 previas y 13 nuevas).
+Incluyen OAuth/PKCE, cookie, expiración/reutilización, cancelación, proveedor
+fallido, identidad duplicada, concurrencia, desvinculación y JWT. Usan únicamente
+un servidor HTTP local, claves RSA de prueba y H2 temporal con Flyway V1/V2.
+La importación de .env se deshabilitó explícitamente al ejecutarlas. No se leyó
+ningún .env, no se consultó la base del usuario ni se probó GitHub con sus claves.
+La vinculación real desde el navegador queda pendiente de su prueba manual.
+
+Referencia de protocolo:
+https://docs.github.com/en/apps/creating-github-apps/authenticating-with-a-github-app/generating-a-user-access-token-for-a-github-app
+## 19. Keycloak local: infraestructura de autenticación (11 de noviembre de 2026)
+
+Decisión actual: utilizar Keycloak en Docker durante el desarrollo, en lugar de
+configurar Cognito en AWS. Keycloak emitirá los JWT mediante OpenID Connect;
+PR-Gate no emitirá JWT propios. Los roles STUDENT y TEACHER, el estado de usuario
+y los permisos sobre recursos seguirán bajo control de los servicios de PR-Gate.
+El administrador de Keycloak no es automáticamente un administrador de PR-Gate.
+No se necesita una carpeta shared entre microservicios.
+
+### Etapa implementada: Docker, realm y cliente
+
+compose.auth.yml levanta un stack independiente del Compose de la aplicación:
+
+- Keycloak 26.8.2, modo start-dev, accesible solo por 127.0.0.1:8090.
+- PostgreSQL 17 dedicado a Keycloak, sin puerto publicado al host.
+- Volumen keycloak-db-data y healthchecks de ambos servicios.
+- Red prgate-auth, disponible para la futura conexión de los microservicios.
+- Importación inicial de infra/keycloak/prgate-realm.json.
+
+No se cambió compose.yml ni se consultó el PostgreSQL personal del usuario.
+El puerto de autenticación no ocupa 8080 (usuarios), 8081 (IA) ni 8082 (métricas).
+
+El realm prgate permite registro con email y exige nombre y apellido. El cliente
+prgate-frontend es público y no tiene client secret. Usa Authorization Code y
+exige PKCE S256. Implicit, Direct Access Grants y Service Accounts están
+inactivos para ese cliente. No se incluyen usuarios ni contraseñas de estudiantes
+en el JSON. La audiencia del access token incluye prgate-api y su firma es RS256.
+
+El access token dura 5 minutos. Se habilita rotación de refresh tokens sin
+reutilización. Las redirecciones y orígenes permitidos están limitados a:
+
+    http://localhost:5173/login
+    http://localhost:3000/login
+
+Los orígenes web correspondientes son localhost:5173 y localhost:3000. El cierre
+de sesión permite esas mismas rutas exactas. No se configuran comodines.
+
+El entorno no configura SMTP; verificación de correo y recuperación de contraseña
+por correo no están habilitadas todavía. No afirmar que envía emails. El modo
+start-dev y la contraseña predeterminada de la base aislada son solo para uso
+local; el despliegue requerirá configuración productiva, HTTPS y credenciales.
+
+### Arranque por el usuario, sin modificar .env
+
+Desde la raíz del backend, en PowerShell:
+
+    $env:KEYCLOAK_ADMIN_PASSWORD = [Net.NetworkCredential]::new('', (Read-Host 'Contraseña del administrador local de Keycloak' -AsSecureString)).Password
+    docker compose -f compose.auth.yml up -d --wait
+
+La contraseña se introduce de forma oculta y se pasa por el entorno del proceso;
+no se escribe en archivos del repositorio. El usuario de bootstrap es
+prgate-admin. Mantener esa variable en la terminal para los comandos Compose;
+si se abre otra terminal, volver a configurarla. No compartir su valor.
+
+Consola de administración:
+
+    http://localhost:8090/admin/
+
+Entrar con prgate-admin y la contraseña elegida, y seleccionar el realm prgate.
+El administrador de bootstrap es temporal; usar la consola para crear un
+administrador permanente si se desea conservar y administrar este entorno.
+Cambiar KEYCLOAK_ADMIN_PASSWORD no cambia la contraseña de un admin ya creado.
+
+Comprobaciones y operación:
+
+    docker compose -f compose.auth.yml ps
+    docker compose -f compose.auth.yml logs --tail=60 keycloak
+    docker compose -f compose.auth.yml stop
+
+stop conserva los datos. No usar down -v si se quieren mantener las cuentas.
+La importación inicial omite un realm que ya existe: cambiar el JSON no modifica
+automáticamente un realm persistido. Para cambios posteriores, utilizar la
+consola/API o una migración explícita; no borrar el volumen para actualizarlo.
+
+Metadatos públicos para la siguiente etapa:
+
+    issuer: http://localhost:8090/realms/prgate
+    discovery: http://localhost:8090/realms/prgate/.well-known/openid-configuration
+    client_id: prgate-frontend
+    audience: prgate-api
+
+Los backends en Docker no deben consultar localhost para llegar a Keycloak.
+Al conectarlos a prgate-auth, el JWKS interno será
+http://keycloak:8080/realms/prgate/protocol/openid-connect/certs, pero deberán
+validar el issuer público exacto. No cambiar el issuer por el hostname interno.
+KC_HOSTNAME_BACKCHANNEL_DYNAMIC permite la separación de direcciones.
+
+### Verificación realizada
+
+Se levantó una instancia desechable y aislada en localhost:18090, proyecto Docker
+prgate-auth-check, con su propio PostgreSQL y un administrador de prueba. Se
+comprobaron healthchecks, importación, discovery, cliente público, atributos de
+perfil obligatorios, login con Authorization Code + PKCE, firma RSA del JWT,
+audiencia y azp, rechazo de un código reutilizado y renovación de sesión. La
+prueba no habilitó password grant en prgate-frontend; las operaciones de
+administración de la fixture usaron exclusivamente el cliente administrativo.
+El cliente HTTP de prueba emuló el manejo de cookies Secure de localhost de los
+navegadores, sin cambiar la configuración del servidor.
+
+Se comprobó además que el usuario ficticio y el realm persisten al reiniciar el
+contenedor de Keycloak. No se usaron cuentas reales, no se mostraron tokens y
+no se leyó ningún .env. El entorno de prueba se elimina al terminar la validación;
+el stack real prgate-auth se inicia con la contraseña que elija el usuario.
+
+### Lo que todavía no está conectado
+
+Esta etapa deja listo el servidor de identidad y su configuración, no el login
+completo de la plataforma. El código actual de GitHub en users-service todavía
+valida Cognito fuera del perfil local. Los cambios experimentales de Cognito,
+permisos y frontend de turnos anteriores permanecen en una copia temporal y no
+se incorporaron al repositorio. No confundir esas pruebas con soporte actual de
+Keycloak en los servicios.
+
+Siguiente etapa: adaptar usuarios y proyectos a tokens Keycloak (firma, issuer,
+audiencia y cliente autorizado), sustituir la referencia cognitoSub por identidad
+externa asociada a emisor y sub mediante una migración que preserve los perfiles,
+y ajustar OIDC/logout y resolución del perfil en PR-Gate-Frontend, rama develop.
+No vincular cuentas automáticamente por correo. Después probar permisos por rol
+y recurso y la vinculación GitHub con una sesión real de Keycloak.
+
+Referencias oficiales:
+https://www.keycloak.org/server/containers
+https://www.keycloak.org/server/hostname
+https://www.keycloak.org/server/importExport
+## 20. Frontend: acceso Keycloak visible (11 de noviembre de 2026)
+
+PR-Gate-Frontend, rama develop, incorpora npm run dev:keycloak para abrir
+http://localhost:5173/login sin leer archivos .env. El usuario puede iniciar
+sesión o registrarse mediante el realm prgate en localhost:8090 y volver a
+/account con nombre, correo y cierre de sesión OIDC. La contraseña se solicita
+solo en Keycloak. Este modo no usa MSW ni asigna roles académicos desde el
+navegador; las rutas de negocio permanecen bloqueadas hasta conectar el perfil
+oficial del backend.
+
+El cambio no adapta todavía users-service o projects-service a Keycloak, no
+crea perfiles en PostgreSQL de PR-Gate ni vincula GitHub automáticamente. El
+registro sí crea la identidad en la base de Keycloak cuando lo realiza el usuario.
+Los permisos STUDENT/TEACHER y la vinculación GitHub son la siguiente integración.
+Se conservaron el modo demo y los cambios locales existentes.
+
+Verificación en copia temporal sin .env: tipos, lint, arquitectura, compilación
+Keycloak local y 118 pruebas aprobadas. La revisión visual quedó pendiente por
+falta de autorización para Chrome. No se usaron cuentas reales ni se accedió a
+bases de datos del usuario al modificar el frontend.

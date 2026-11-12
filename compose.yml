@@ -9,6 +9,9 @@ services:
       - "${SERVER_PORT:-8080}:8080"
     env_file:
       - ./users-service/.env
+    environment:
+      # The normal local startup must retain Keycloak profile resolution.
+      SPRING_PROFILES_ACTIVE: ${USERS_AUTH_PROFILES:-local,keycloak}
     restart: unless-stopped
 
   ai-service:

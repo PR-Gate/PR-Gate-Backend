@@ -1,10 +1,38 @@
-# Local overlay. Run explicitly with compose.yml; no database service is created.
+# Users-only local overlay. Use --env-file users-service/.env for interpolation.
 services:
-  users-service:
+  users-db:
+    image: postgres:17-alpine
     environment:
+      POSTGRES_DB: prgate_users
+      POSTGRES_USER: prgate_users
+      POSTGRES_PASSWORD: ${DB_PASSWORD:-${SPRING_DATASOURCE_PASSWORD:?Configure DB_PASSWORD in users-service/.env}}
+    volumes:
+      - users-db-data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U prgate_users -d prgate_users"]
+      interval: 5s
+      timeout: 3s
+      retries: 20
+    restart: unless-stopped
+  users-service:
+    depends_on:
+      users-db:
+        condition: service_healthy
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    environment:
+      DB_URL: jdbc:postgresql://users-db:5432/prgate_users
+      DB_USERNAME: prgate_users
+      DB_PASSWORD: ${DB_PASSWORD:-${SPRING_DATASOURCE_PASSWORD:?Configure DB_PASSWORD in users-service/.env}}
+      SPRING_DATASOURCE_URL: jdbc:postgresql://users-db:5432/prgate_users
+      SPRING_DATASOURCE_USERNAME: prgate_users
+      SPRING_DATASOURCE_PASSWORD: ${DB_PASSWORD:-${SPRING_DATASOURCE_PASSWORD:?Configure DB_PASSWORD in users-service/.env}}
+      SPRING_JPA_HIBERNATE_DDL_AUTO: validate
       SPRING_PROFILES_ACTIVE: local,keycloak
       SERVER_PORT: "8080"
       KEYCLOAK_ISSUER: http://localhost:8090/realms/prgate
       KEYCLOAK_JWK_SET_URI: http://host.docker.internal:8090/realms/prgate/protocol/openid-connect/certs
       KEYCLOAK_AUDIENCE: prgate-api
       KEYCLOAK_CLIENT_ID: prgate-frontend
+volumes:
+  users-db-data:

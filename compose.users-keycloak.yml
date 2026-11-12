@@ -1,0 +1,10 @@
+# Local overlay. Run explicitly with compose.yml; no database service is created.
+services:
+  users-service:
+    environment:
+      SPRING_PROFILES_ACTIVE: local,keycloak
+      SERVER_PORT: "8080"
+      KEYCLOAK_ISSUER: http://localhost:8090/realms/prgate
+      KEYCLOAK_JWK_SET_URI: http://host.docker.internal:8090/realms/prgate/protocol/openid-connect/certs
+      KEYCLOAK_AUDIENCE: prgate-api
+      KEYCLOAK_CLIENT_ID: prgate-frontend

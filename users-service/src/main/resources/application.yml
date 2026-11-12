@@ -23,6 +23,16 @@ spring:
 server:
   port: ${SERVER_PORT:8080}
 
+# Disabled until explicitly configured. No credentials are stored in this file.
+github:
+  token-encryption-key: ${GITHUB_TOKEN_ENCRYPTION_KEY:}
+  enabled: ${GITHUB_ENABLED:false}
+  client-id: ${GITHUB_CLIENT_ID:}
+  client-secret: ${GITHUB_CLIENT_SECRET:}
+  redirect-uri: ${GITHUB_REDIRECT_URI:}
+  cognito-issuer: ${COGNITO_ISSUER_URI:}
+  cognito-client-id: ${COGNITO_CLIENT_ID:}
+
 prgate:
   internal:
     service-token: ${INTERNAL_SERVICE_TOKEN:}

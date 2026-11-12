@@ -1,0 +1,6 @@
+FROM maven:3.9.11-eclipse-temurin-21
+WORKDIR /workspace
+COPY pom.xml .
+COPY src ./src
+RUN --mount=type=cache,target=/root/.m2 mvn -B -ntp -Dspring.config.import= -Dtest=KeycloakIdentityServiceTest,KeycloakJwtValidationTest,KeycloakConfigurationTest,AccountRegistrationContractTest test
+RUN --mount=type=cache,target=/root/.m2 mvn -B -ntp -DskipTests package

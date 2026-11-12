@@ -11,3 +11,6 @@
 
 # Salidas generadas de Maven (todos los servicios)
 **/target/
+
+# Dependencias de Node.js
+node_modules/

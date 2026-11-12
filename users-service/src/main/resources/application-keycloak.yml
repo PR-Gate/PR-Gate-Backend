@@ -1,0 +1,7 @@
+prgate:
+  auth:
+    provider: keycloak
+    issuer: ${KEYCLOAK_ISSUER:http://localhost:8090/realms/prgate}
+    jwk-set-uri: ${KEYCLOAK_JWK_SET_URI:http://host.docker.internal:8090/realms/prgate/protocol/openid-connect/certs}
+    audience: ${KEYCLOAK_AUDIENCE:prgate-api}
+    client-id: ${KEYCLOAK_CLIENT_ID:prgate-frontend}

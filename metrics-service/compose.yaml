@@ -1,0 +1,9 @@
+services:
+  metrics:
+    build: .
+    image: prgate-metrics-service:local
+    ports:
+      - "127.0.0.1:${SERVER_PORT:-8084}:8084"
+    environment:
+      SERVER_PORT: "8084"
+    restart: unless-stopped

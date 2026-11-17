@@ -3,6 +3,7 @@ package com.prgate.cicd.interfaces.http.webhook;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import org.springframework.http.ResponseEntity;
 import com.prgate.cicd.application.port.out.SonarWebhookInboxPort;
+import com.prgate.cicd.application.port.out.SonarWebhookReceiptPort;
 import org.springframework.web.bind.annotation.*;
 
 /** The signature filter authenticates the raw body before this durable inbox insert. */
@@ -11,10 +12,13 @@ import org.springframework.web.bind.annotation.*;
 public class SonarWebhookController {
     private final SonarWebhookInboxPort inbox;
     private final ObjectMapper json;
-    public SonarWebhookController(SonarWebhookInboxPort inbox, ObjectMapper json) { this.inbox = inbox; this.json = json; }
+    private final SonarWebhookReceiptPort receipts;
+    public SonarWebhookController(SonarWebhookInboxPort inbox, ObjectMapper json, SonarWebhookReceiptPort receipts) {
+        this.inbox = inbox; this.json = json; this.receipts = receipts;
+    }
 
     @PostMapping
-    public ResponseEntity<Void> receive(@RequestBody byte[] body) {
+    public ResponseEntity<Receipt> receive(@RequestBody byte[] body) {
         final com.fasterxml.jackson.databind.JsonNode payload;
         try { payload = json.readTree(body); }
         catch (java.io.IOException exception) {
@@ -23,12 +27,22 @@ public class SonarWebhookController {
         if (payload == null || !payload.isObject()) {
             throw new org.springframework.web.server.ResponseStatusException(org.springframework.http.HttpStatus.BAD_REQUEST, "Sonar payload must be an object");
         }
-        // Quality gate recalculations and analyses outside PRGate are not correlated here.
+        String projectKey = payload.path("project").path("key").asText();
+        String status = payload.path("status").asText();
+        if (projectKey.isBlank() || status.isBlank()) {
+            throw new org.springframework.web.server.ResponseStatusException(org.springframework.http.HttpStatus.BAD_REQUEST,
+                    "Sonar project key and task status are required");
+        }
+        String taskId = payload.path("taskId").asText("");
+        boolean firstDelivery = receipts.record(body, projectKey, taskId.isBlank() ? null : taskId, status);
+        // Receipt is not proof of a correlated pipeline result.
         if (!"SUCCESS".equals(payload.path("status").asText())
                 || payload.path("properties").path("sonar.analysis.prgateRunId").asText().isBlank()) {
-            return ResponseEntity.accepted().build();
+            return ResponseEntity.accepted().body(new Receipt("SONAR_RECEIVED_UNCORRELATED", projectKey, taskId, !firstDelivery));
         }
         inbox.enqueue(body);
-        return ResponseEntity.accepted().build();
+        return ResponseEntity.accepted().body(new Receipt("SONAR_QUEUED", projectKey, taskId, !firstDelivery));
     }
+
+    public record Receipt(String result, String projectKey, String taskId, boolean duplicate) { }
 }

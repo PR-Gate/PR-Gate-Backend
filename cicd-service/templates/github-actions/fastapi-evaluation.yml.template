@@ -1,0 +1,87 @@
+name: PRGate Evaluation
+
+on:
+  push:
+
+permissions:
+  contents: read
+
+jobs:
+  evaluate:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          fetch-depth: 0
+      - name: Check push eligibility
+        id: gate
+        env:
+          PRGATE_BEFORE: ${{ github.event.before }}
+          PRGATE_AFTER: ${{ github.event.after }}
+          PRGATE_REF: ${{ github.ref }}
+        run: bash .github/scripts/prgate-push-filter.sh
+      - name: Record decision in workflow summary
+        env:
+          REASON: ${{ steps.gate.outputs.reason }}
+          FILES: ${{ steps.gate.outputs.changed_files }}
+          RELEVANT: ${{ steps.gate.outputs.relevant_files }}
+        run: |
+          printf 'PRGate decision: %s\nChanged files: %s\nNon-Markdown files: %s\n' "$REASON" "$FILES" "$RELEVANT" >> "$GITHUB_STEP_SUMMARY"
+      - name: Validate analysis configuration
+        if: steps.gate.outputs.eligible == 'true'
+        env:
+          ANALYSIS_BRANCH: ${{ vars.PRGATE_ANALYSIS_BRANCH }}
+          SONAR_URL: ${{ vars.PRGATE_SONAR_URL }}
+          PROJECT_KEY: ${{ vars.PRGATE_SONAR_PROJECT_KEY }}
+          SONAR_TOKEN: ${{ secrets.PRGATE_SONAR_ANALYSIS_TOKEN }}
+        run: |
+          test -n "$ANALYSIS_BRANCH" && test -n "$SONAR_URL" && test -n "$PROJECT_KEY" && test -n "$SONAR_TOKEN"
+      - uses: actions/setup-python@v6
+        if: steps.gate.outputs.eligible == 'true' && github.ref_name == vars.PRGATE_ANALYSIS_BRANCH
+        with:
+          python-version: '3.12'
+      - name: Install dependencies
+        id: dependencies
+        if: steps.gate.outputs.eligible == 'true' && github.ref_name == vars.PRGATE_ANALYSIS_BRANCH
+        run: |
+          if [ -f requirements.txt ]; then python -m pip install -r requirements.txt;
+          elif [ -f pyproject.toml ]; then python -m pip install -e .;
+          else echo 'Add requirements.txt or an installable pyproject.toml'; exit 1; fi
+          python -m pip install pytest pytest-cov httpx
+      - name: Check Python syntax
+        id: syntax
+        if: steps.dependencies.outcome == 'success'
+        run: python -m compileall -q -x '(^|/)(\.venv|venv|\.git)/' .
+      - name: Run tests and produce coverage when available
+        if: steps.syntax.outcome == 'success'
+        run: |
+          set +e
+          python -m pytest --cov=. --cov-report=xml:coverage.xml
+          result=$?
+          set -e
+          if [ "$result" -eq 5 ]; then
+            rm -f coverage.xml
+            echo '::notice::No tests collected; no coverage report will be submitted.'
+          else
+            exit "$result"
+          fi
+      - name: Analyze FastAPI code
+        if: always() && steps.gate.outputs.eligible == 'true' && steps.dependencies.outcome == 'success' && steps.syntax.outcome == 'success'
+        uses: SonarSource/sonarqube-scan-action@v7
+        env:
+          SONAR_TOKEN: ${{ secrets.PRGATE_SONAR_ANALYSIS_TOKEN }}
+          SONAR_HOST_URL: ${{ vars.PRGATE_SONAR_URL }}
+        with:
+          args: >-
+            -Dsonar.projectKey=${{ vars.PRGATE_SONAR_PROJECT_KEY }}
+            -Dsonar.sources=.
+            -Dsonar.inclusions=**/*.py
+            -Dsonar.exclusions=.venv/**,venv/**,.git/**,**/__pycache__/**
+            -Dsonar.python.version=3.12
+            -Dsonar.scm.revision=${{ github.sha }}
+            -Dsonar.analysis.prgateRepositoryId=${{ github.repository_id }}
+            -Dsonar.analysis.prgateWorkflowRunId=${{ github.run_id }}
+            -Dsonar.analysis.prgateWorkflowRunAttempt=${{ github.run_attempt }}
+            -Dsonar.analysis.prgatePushBefore=${{ github.event.before }}
+            -Dsonar.analysis.prgatePushRef=${{ github.ref }}
+            ${{ hashFiles('coverage.xml') != '' && '-Dsonar.python.coverage.reportPaths=coverage.xml' || '' }}

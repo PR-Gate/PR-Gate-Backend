@@ -30,16 +30,21 @@ public class GitHubWebhookController {
     private static final String WORKFLOW_RUN_EVENT = "workflow_run";
 
     private final RecordGitHubWorkflowRunUseCase recordWorkflowRun;
+    private final PushWebhookInspector pushes;
 
-    public GitHubWebhookController(RecordGitHubWorkflowRunUseCase recordWorkflowRun) {
+    public GitHubWebhookController(RecordGitHubWorkflowRunUseCase recordWorkflowRun, PushWebhookInspector pushes) {
         this.recordWorkflowRun = recordWorkflowRun;
+        this.pushes = pushes;
     }
 
     @PostMapping
-    public ResponseEntity<WebhookAcknowledgement> receive(
+    public ResponseEntity<?> receive(
             @RequestHeader("X-GitHub-Event") String githubEvent,
             @RequestHeader("X-GitHub-Delivery") String deliveryId,
             @RequestBody JsonNode payload) {
+        if ("push".equals(githubEvent)) {
+            return ResponseEntity.accepted().body(pushes.inspect(deliveryId, payload));
+        }
         if (!WORKFLOW_RUN_EVENT.equals(githubEvent)) {
             return ResponseEntity.accepted().body(new WebhookAcknowledgement("IGNORED_EVENT"));
         }

@@ -1,0 +1,21 @@
+{
+  "schemaVersion": 1,
+  "eventType": "cicd.analysis.completed.v1",
+  "eventId": "98f639ca-dd21-4e82-a21c-d327e6b86911",
+  "occurredAt": "2026-11-17T03:00:00Z",
+  "repositoryId": 123,
+  "repository": "example/backend",
+  "gitRef": "refs/heads/main",
+  "commitSha": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+  "workflowRunId": 456,
+  "workflowRunAttempt": 1,
+  "sonarProjectKey": "example-backend",
+  "sonarTaskId": "task-123",
+  "sonarAnalysisId": "analysis-123",
+  "analyzedAt": "2026-11-17T02:59:00Z",
+  "qualityGateStatus": "OK",
+  "measures": {
+    "coverage": 42,
+    "duplicated_lines_density": 0
+  }
+}

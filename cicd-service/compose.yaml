@@ -33,6 +33,12 @@ services:
       SPRING_DATASOURCE_PASSWORD: ${DB_PASSWORD}
       SONAR_BASE_URL: ${DOCKER_SONAR_URL:-http://host.docker.internal:9000}
       SONAR_SCANNER_HOME: /opt/sonar-scanner
+      MESSAGING_ENABLED: ${MESSAGING_ENABLED:-false}
+      RABBITMQ_HOST: host.docker.internal
+      RABBITMQ_PORT: "5672"
+      RABBITMQ_USERNAME: ${RABBITMQ_USERNAME:-}
+      RABBITMQ_PASSWORD: ${RABBITMQ_PASSWORD:-}
+      RABBITMQ_VHOST: prgate
       SPRING_JPA_HIBERNATE_DDL_AUTO: validate
     depends_on:
       postgres:

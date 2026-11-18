@@ -3,6 +3,22 @@ spring:
     import: optional:file:.env[.properties]
   application:
     name: cicd-service
+  rabbitmq:
+    host: ${RABBITMQ_HOST:localhost}
+    port: ${RABBITMQ_PORT:5672}
+    username: ${RABBITMQ_USERNAME:}
+    password: ${RABBITMQ_PASSWORD:}
+    virtual-host: ${RABBITMQ_VHOST:prgate}
+    publisher-confirm-type: correlated
+    publisher-returns: true
+    template:
+      mandatory: true
+    listener:
+      simple:
+        default-requeue-rejected: false
+        retry:
+          enabled: true
+          max-attempts: 3
   servlet:
     multipart:
       max-file-size: 256KB
@@ -28,6 +44,8 @@ server:
   port: ${SERVER_PORT:8082}
 
 app:
+  messaging:
+    enabled: ${MESSAGING_ENABLED:false}
   file-pilot:
     scanner-home: ${SONAR_SCANNER_HOME:}
   sonar:
@@ -39,6 +57,9 @@ app:
     webhook-secret: ${GITHUB_WEBHOOK_SECRET:}
 
 management:
+  health:
+    rabbit:
+      enabled: ${MESSAGING_ENABLED:false}
   endpoints:
     web:
       exposure:

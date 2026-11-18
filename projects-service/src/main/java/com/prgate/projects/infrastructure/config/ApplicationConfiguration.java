@@ -24,6 +24,12 @@ import java.time.Clock;
 @Configuration
 public class ApplicationConfiguration {
     @Bean
+    com.prgate.projects.application.service.EvaluationAccessService evaluationAccessService(
+            ProjectRepository projects, CourseRepository courses,
+            ProjectMembershipRepository members, UserDirectory users) {
+        return new com.prgate.projects.application.service.EvaluationAccessService(projects, courses, members, users);
+    }
+    @Bean
     Clock clock() { return Clock.systemUTC(); }
 
     @Bean

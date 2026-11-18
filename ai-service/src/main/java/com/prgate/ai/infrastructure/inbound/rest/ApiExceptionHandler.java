@@ -19,6 +19,8 @@ public final class ApiExceptionHandler {
     ProblemDetail malformed(Exception ex) { return problem(400, "Invalid request fields or JSON"); }
     @ExceptionHandler(DomainRuleViolation.class)
     ProblemDetail domain(DomainRuleViolation ex) { return problem(422, ex.getMessage()); }
+    @ExceptionHandler(IllegalArgumentException.class)
+    ProblemDetail invalidEstimate(IllegalArgumentException ex) { return problem(400, "Invalid estimation request"); }
     @ExceptionHandler(OptimisticLockingFailureException.class)
     ProblemDetail conflict(Exception ex) { return problem(409, "Resource changed; reload before retrying"); }
     @ExceptionHandler(AiGenerationException.class)

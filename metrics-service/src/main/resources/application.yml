@@ -1,5 +1,53 @@
 spring:
   application:
     name: metrics-service
+  datasource:
+    url: ${DB_URL:jdbc:postgresql://localhost:5432/prgate_metrics}
+    username: ${DB_USERNAME:prgate_metrics}
+    password: ${DB_PASSWORD}
+  flyway:
+    default-schema: metrics
+    schemas: metrics
+  rabbitmq:
+    publisher-confirm-type: correlated
+    publisher-returns: true
+    template:
+      mandatory: true
+    host: ${RABBITMQ_HOST:localhost}
+    port: ${RABBITMQ_PORT:5672}
+    username: ${RABBITMQ_USERNAME}
+    password: ${RABBITMQ_PASSWORD}
+    virtual-host: ${RABBITMQ_VHOST:prgate}
+    listener:
+      simple:
+        acknowledge-mode: auto
+        default-requeue-rejected: false
+        prefetch: 10
+        retry:
+          enabled: true
+          max-attempts: 3
+          initial-interval: 1000ms
+          multiplier: 2
+          max-interval: 5000ms
 server:
-  port: ${SERVER_PORT:8082}
+  port: ${SERVER_PORT:8084}
+app:
+  ai:
+    base-url: ${AI_BASE_URL:http://localhost:8081}
+    token: ${AI_SERVICE_TOKEN:}
+  api:
+    token: ${METRICS_API_TOKEN:}
+  projects:
+    base-url: ${PROJECTS_BASE_URL:http://localhost:8083}
+    token: ${METRICS_PROJECTS_TOKEN:}
+  sonar:
+    base-url: ${SONAR_BASE_URL:http://localhost:9000}
+    token: ${SONAR_TOKEN:}
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health
+  endpoint:
+    health:
+      show-details: never

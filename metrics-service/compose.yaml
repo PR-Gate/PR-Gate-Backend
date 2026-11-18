@@ -1,4 +1,18 @@
 services:
+  postgres:
+    image: postgres:17-alpine
+    environment:
+      POSTGRES_DB: prgate_metrics
+      POSTGRES_USER: prgate_metrics
+      POSTGRES_PASSWORD: ${DB_PASSWORD:?Set DB_PASSWORD for metrics}
+    volumes:
+      - metrics-db-data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U prgate_metrics -d prgate_metrics"]
+      interval: 5s
+      timeout: 3s
+      retries: 20
+    restart: unless-stopped
   metrics:
     build: .
     image: prgate-metrics-service:local
@@ -6,4 +20,26 @@ services:
       - "127.0.0.1:${SERVER_PORT:-8084}:8084"
     environment:
       SERVER_PORT: "8084"
+      DB_URL: jdbc:postgresql://postgres:5432/prgate_metrics
+      DB_USERNAME: prgate_metrics
+      DB_PASSWORD: ${DB_PASSWORD}
+      RABBITMQ_HOST: host.docker.internal
+      RABBITMQ_PORT: "5672"
+      RABBITMQ_USERNAME: ${RABBITMQ_USERNAME:?Set RABBITMQ_USERNAME}
+      RABBITMQ_PASSWORD: ${RABBITMQ_PASSWORD:?Set RABBITMQ_PASSWORD}
+      RABBITMQ_VHOST: prgate
+      METRICS_API_TOKEN: ${METRICS_API_TOKEN:-}
+      METRICS_PROJECTS_TOKEN: ${METRICS_PROJECTS_TOKEN:-}
+      PROJECTS_BASE_URL: ${DOCKER_PROJECTS_URL:-http://host.docker.internal:8083}
+      SONAR_BASE_URL: ${DOCKER_SONAR_URL:-http://host.docker.internal:9000}
+      SONAR_TOKEN: ${SONAR_TOKEN:-}
+      AI_BASE_URL: ${DOCKER_AI_URL:-http://host.docker.internal:8081}
+      AI_SERVICE_TOKEN: ${AI_SERVICE_TOKEN:-}
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    depends_on:
+      postgres:
+        condition: service_healthy
     restart: unless-stopped
+volumes:
+  metrics-db-data:

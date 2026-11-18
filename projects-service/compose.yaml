@@ -29,6 +29,7 @@ services:
       DB_USERNAME: prgate_projects
       DB_PASSWORD: ${DB_PASSWORD:?Set DB_PASSWORD in .env}
       PRGATE_LOCAL_USERS: ${PROJECTS_LOCAL_USERS:-}
+      METRICS_PROJECTS_TOKEN: ${METRICS_PROJECTS_TOKEN:-}
     depends_on:
       postgres:
         condition: service_healthy

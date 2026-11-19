@@ -29,12 +29,51 @@ public class JdbcEvaluationStore implements EvaluationStore {
                 """, rubric.id().value(), rubric.version().value(), project, write(rubric), actor);
     }
     public Optional<PublishedRubric> rubric(UUID project, UUID rubricId, int version) {
-        return jdbc.query("SELECT payload FROM metrics.published_rubrics WHERE project_id=? AND rubric_id=? AND version=?",
+        return jdbc.query("SELECT payload FROM metrics.published_rubrics WHERE project_id=? AND rubric_id=? AND version=? AND archived_at IS NULL",
                 (row, i) -> read(row.getString(1), PublishedRubric.class), project, rubricId, version).stream().findFirst();
     }
     public int latestRubricVersion(UUID project, UUID rubricId) {
-        return jdbc.queryForObject("SELECT COALESCE(MAX(version),0) FROM metrics.published_rubrics WHERE project_id=? AND rubric_id=?",
+        return jdbc.queryForObject("SELECT COALESCE(MAX(version),0) FROM metrics.published_rubrics WHERE project_id=? AND rubric_id=? AND archived_at IS NULL",
                 Integer.class, project, rubricId);
+    }
+    public List<PublishedRubric> rubrics(UUID project,int page,int size) {
+        return jdbc.query("""
+                SELECT payload FROM (
+                  SELECT DISTINCT ON (rubric_id) payload,published_at,rubric_id
+                  FROM metrics.published_rubrics WHERE project_id=? AND archived_at IS NULL ORDER BY rubric_id,version DESC
+                ) latest ORDER BY published_at DESC,rubric_id LIMIT ? OFFSET ?
+                """,(row,i)->read(row.getString(1),PublishedRubric.class),project,size,(long)page*size);
+    }
+    public void lockCourseRubrics(UUID courseId) {
+        jdbc.query("SELECT pg_advisory_xact_lock(hashtextextended(?, 0))",
+                (org.springframework.jdbc.core.RowCallbackHandler) row -> {}, "course-rubrics:" + courseId);
+    }
+    public boolean archiveCourseRubric(UUID courseId, UUID rubricId) {
+        return jdbc.update("""
+                UPDATE metrics.published_rubrics SET archived_at=CURRENT_TIMESTAMP
+                WHERE project_id=? AND rubric_id=? AND archived_at IS NULL
+                """, courseId, rubricId) > 0;
+    }
+    public List<StoredConfiguration> configurations(UUID project,long repositoryId) {
+        return jdbc.query("""
+                SELECT payload FROM metrics.evaluation_configurations WHERE project_id=? AND repository_id=? AND active
+                ORDER BY approved_at DESC
+                """,(row,i)->read(row.getString(1),StoredConfiguration.class),project,repositoryId);
+    }
+    public List<RepositoryChoice> repositories(String organization) {
+        return jdbc.query("""
+                SELECT DISTINCT ON (repository_id,git_ref) repository_id,payload->>'repository' AS full_name,
+                    git_ref,analyzed_at FROM metrics.analysis_snapshots
+                WHERE lower(split_part(payload->>'repository','/',1))=lower(?)
+                ORDER BY repository_id,git_ref,analyzed_at DESC
+                """,(row,i)->new RepositoryChoice(row.getLong(1),row.getString(2),row.getString(3),row.getTimestamp(4).toInstant()),organization);
+    }
+    public List<AnalysisCompletedEvent> analyses(String organization,long repository,String gitRef,int page,int size) {
+        return jdbc.query("""
+                SELECT payload FROM metrics.analysis_snapshots WHERE repository_id=? AND git_ref=?
+                  AND lower(split_part(payload->>'repository','/',1))=lower(?)
+                ORDER BY analyzed_at DESC,event_id LIMIT ? OFFSET ?
+                """,(row,i)->read(row.getString(1),AnalysisCompletedEvent.class),repository,gitRef,organization,size,(long)page*size);
     }
     @Transactional
     public void activateConfiguration(StoredConfiguration configuration) {
@@ -102,7 +141,7 @@ public class JdbcEvaluationStore implements EvaluationStore {
         return jdbc.query(EVALUATION_SELECT + " WHERE e.evaluation_id=?", this::evaluationRow, id).stream().findFirst();
     }
     public List<StoredEvaluation> evaluations(UUID project, long repository, int page, int size) {
-        return jdbc.query(EVALUATION_SELECT + " WHERE e.project_id=? AND s.repository_id=? ORDER BY e.evaluated_at DESC, e.evaluation_id LIMIT ? OFFSET ?",
+        return jdbc.query(EVALUATION_SELECT + " WHERE e.project_id=? AND s.repository_id=? ORDER BY s.analyzed_at DESC, e.evaluated_at DESC, e.evaluation_id LIMIT ? OFFSET ?",
                 this::evaluationRow, project, repository, size, (long) page * size);
     }
     public List<PendingEvaluation> pendingEvaluations() {

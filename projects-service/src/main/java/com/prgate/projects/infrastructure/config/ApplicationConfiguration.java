@@ -8,6 +8,7 @@ import com.prgate.projects.application.port.out.UserDirectory;
 import com.prgate.projects.application.port.out.ProjectUnitOfWork;
 import com.prgate.projects.application.port.out.GitHubOrganizationDirectory;
 import com.prgate.projects.application.port.out.ProjectReadRepository;
+import com.prgate.projects.application.port.in.CreateProjectUseCase;
 import com.prgate.projects.application.service.CreateCourseService;
 import com.prgate.projects.application.service.CreateProjectService;
 import com.prgate.projects.application.service.RequestCourseEnrollmentService;
@@ -19,6 +20,8 @@ import com.prgate.projects.application.service.TransferProjectMemberService;
 import com.prgate.projects.application.service.ProjectQueryService;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
+import org.springframework.transaction.PlatformTransactionManager;
+import org.springframework.transaction.support.TransactionTemplate;
 import java.time.Clock;
 
 @Configuration
@@ -38,8 +41,12 @@ public class ApplicationConfiguration {
     }
 
     @Bean
-    CreateProjectService createProjectService(CourseRepository courses, ProjectRepository projects, UserDirectory users, Clock clock) {
-        return new CreateProjectService(courses, projects, users, clock);
+    CreateProjectUseCase createProjectService(CourseRepository courses, ProjectRepository projects,
+            CourseEnrollmentRepository enrollments, ProjectMembershipRepository memberships, UserDirectory users,
+            Clock clock, PlatformTransactionManager manager) {
+        var service = new CreateProjectService(courses, projects, enrollments, memberships, users, clock);
+        var transaction = new TransactionTemplate(manager);
+        return (command, actor) -> transaction.execute(status -> service.handle(command, actor));
     }
 
     @Bean

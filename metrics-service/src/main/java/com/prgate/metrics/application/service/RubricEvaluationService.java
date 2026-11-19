@@ -24,6 +24,43 @@ public class RubricEvaluationService {
     @Transactional
     public PublishedRubric publish(UUID actor, UUID project, UUID previousId, String title, List<RubricCriterion> criteria) {
         require(actor, project, true);
+        return publishInScope(actor, project, previousId, title, criteria);
+    }
+
+    @Transactional
+    public PublishedRubric publishCourse(UUID actor, UUID course, UUID previousId, String title, List<RubricCriterion> criteria) {
+        requireCourseTeacher(actor, course);
+        store.lockCourseRubrics(course);
+        if (previousId == null && !store.rubrics(course, 0, 1).isEmpty()) {
+            throw new CourseRubricConflict();
+        }
+        return publishInScope(actor, course, previousId, title, criteria);
+    }
+
+    @Transactional
+    public void archiveCourseRubric(UUID actor, UUID course, UUID rubricId) {
+        requireCourseTeacher(actor, course);
+        store.lockCourseRubrics(course);
+        if (!store.archiveCourseRubric(course, rubricId)) throw new NoSuchElementException();
+    }
+
+    public static final class CourseRubricConflict extends RuntimeException { }
+
+    public List<PublishedRubric> courseRubrics(UUID actor, UUID course, int page, int size) {
+        if (!access.checkCourse(course, actor).mayRead()) throw new EvaluationAccessDenied();
+        pagination(page, size);
+        return store.rubrics(course, page, size);
+    }
+    public PublishedRubric rubricForProposal(UUID actor, UUID course, UUID rubric, int version) {
+        requireCourseTeacher(actor, course);
+        return store.rubric(course, rubric, version).orElseThrow(NoSuchElementException::new);
+    }
+
+    public void requireCourseTeacher(UUID actor, UUID course) {
+        if (!access.checkCourse(course, actor).mayManage()) throw new EvaluationAccessDenied();
+    }
+
+    private PublishedRubric publishInScope(UUID actor, UUID project, UUID previousId, String title, List<RubricCriterion> criteria) {
         UUID id = previousId == null ? UUID.randomUUID() : previousId;
         int previousVersion = store.latestRubricVersion(project, id);
         if (previousId != null && previousVersion == 0) throw new NoSuchElementException();
@@ -39,7 +76,9 @@ public class RubricEvaluationService {
             throw new IllegalArgumentException("Project requires its GitHub organization");
         if (repositoryId <= 0 || gitRef == null || !gitRef.matches("refs/heads/[^\\s]+"))
             throw new IllegalArgumentException("Repository and full branch reference are required");
-        var rubric = store.rubric(project, rubricId, version).orElseThrow(NoSuchElementException::new);
+        var rubric = (allowed.courseId() == null ? Optional.<PublishedRubric>empty()
+                : store.rubric(allowed.courseId(), rubricId, version))
+                .or(() -> store.rubric(project, rubricId, version)).orElseThrow(NoSuchElementException::new);
         for (var check : checks) {
             check.toDomain();
             if (check.type().equals("METRIC")) {
@@ -50,7 +89,7 @@ public class RubricEvaluationService {
             } else if (check.type().equals("RULE")) sonar.validateRule(check.key());
         }
         var result = new StoredConfiguration(UUID.randomUUID(), project, repositoryId, allowed.organization(),
-                gitRef, rubric, planId, checks, actor, Instant.now(), "sonar-global-v1");
+                gitRef, rubric, planId==null?UUID.randomUUID():planId, checks, actor, Instant.now(), "sonar-global-v1");
         result.basis(); // All published criteria and exact automatic check IDs must be covered.
         QualityGateRequest.conditions(result);
         store.activateConfiguration(result);
@@ -85,6 +124,28 @@ public class RubricEvaluationService {
         require(actor, project, false);
         return store.rubric(project, id, version).orElseThrow(NoSuchElementException::new);
     }
+    public List<PublishedRubric> rubrics(UUID actor,UUID project,int page,int size) {
+        require(actor,project,false); pagination(page,size);
+        return store.rubrics(project,page,size);
+    }
+    public List<StoredConfiguration> configurations(UUID actor,UUID project,long repositoryId) {
+        require(actor,project,false);
+        if (repositoryId<=0) throw new IllegalArgumentException("Invalid repository");
+        return store.configurations(project,repositoryId);
+    }
+    public List<EvaluationStore.RepositoryChoice> repositories(UUID actor,UUID project) {
+        var rights=require(actor,project,false);
+        return rights.organization()==null?List.of():store.repositories(rights.organization());
+    }
+    public List<AnalysisCompletedEvent> analyses(UUID actor,UUID project,long repository,String ref,int page,int size) {
+        var rights=require(actor,project,false); pagination(page,size);
+        if (repository<=0 || ref==null || !ref.startsWith("refs/heads/") || ref.length()>1024)
+            throw new IllegalArgumentException("Invalid repository or branch");
+        return rights.organization()==null?List.of():store.analyses(rights.organization(),repository,ref,page,size);
+    }
+    private void pagination(int page,int size) {
+        if (page<0 || page>100000 || size<1 || size>100) throw new IllegalArgumentException("Invalid pagination");
+    }
 
     public StoredConfiguration configuration(UUID actor, UUID project, UUID id) {
         require(actor, project, false);
@@ -107,7 +168,14 @@ public class RubricEvaluationService {
 
     public record AnalysisView(AnalysisCompletedEvent reference, EvaluationStore.Evidence evidence) { }
     public GradeEstimationEvidence estimationEvidence(UUID actor,UUID project,UUID evaluationId) {
-        var evaluation=get(actor,project,evaluationId);
+        return estimationEvidence(get(actor,project,evaluationId));
+    }
+
+    GradeEstimationEvidence estimationEvidenceForWorker(UUID evaluationId) {
+        return estimationEvidence(store.evaluation(evaluationId).orElseThrow(NoSuchElementException::new));
+    }
+
+    private GradeEstimationEvidence estimationEvidence(EvaluationStore.StoredEvaluation evaluation) {
         var configuration=store.configuration(evaluation.configurationId()).orElseThrow(NoSuchElementException::new);
         var evidence=store.evidence(evaluation.eventId());
         List<GradeEstimationEvidence.CriterionEvidence> criteria=new ArrayList<>();

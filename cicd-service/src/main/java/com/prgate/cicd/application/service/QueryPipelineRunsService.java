@@ -16,6 +16,12 @@ public final class QueryPipelineRunsService implements QueryPipelineRunsUseCase 
     }
 
     @Override
+    public List<PipelineRun> listProject(UUID projectId, int page, int size) {
+        if (page < 0 || size < 1 || size > 100) throw new IllegalArgumentException("Invalid pagination");
+        return queryPort.findByProject(projectId, page, size);
+    }
+
+    @Override
     public Optional<PipelineRun> findById(UUID id) {
         return queryPort.findById(Objects.requireNonNull(id));
     }

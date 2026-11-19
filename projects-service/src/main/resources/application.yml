@@ -22,6 +22,10 @@ server:
   port: ${SERVER_PORT:8081}
 
 prgate:
+  users:
+    remote-enabled: ${PROJECTS_USERS_REMOTE_ENABLED:false}
+    base-url: ${USERS_BASE_URL:http://localhost:8080}
+    service-token: ${USERS_SERVICE_TOKEN:}
   security:
     issuer: ${COGNITO_ISSUER:}
     client-id: ${COGNITO_CLIENT_ID:}

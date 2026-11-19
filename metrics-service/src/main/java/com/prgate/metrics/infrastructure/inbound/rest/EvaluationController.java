@@ -37,6 +37,26 @@ public class EvaluationController {
                                   @Valid @RequestBody PublishRequest request) {
         return RubricResource.from(service.publish(actor, projectId, null, request.title(), request.criteria().stream().map(CriterionRequest::domain).toList()));
     }
+    @GetMapping("/rubrics")
+    public List<RubricResource> rubrics(@RequestAttribute("verifiedActorId") UUID actor,@PathVariable UUID projectId,
+            @RequestParam(defaultValue="0") int page,@RequestParam(defaultValue="100") int size) {
+        return service.rubrics(actor,projectId,page,size).stream().map(RubricResource::from).toList();
+    }
+    @GetMapping("/repositories")
+    public List<EvaluationStore.RepositoryChoice> repositories(@RequestAttribute("verifiedActorId") UUID actor,@PathVariable UUID projectId) {
+        return service.repositories(actor,projectId);
+    }
+    @GetMapping("/analyses")
+    public List<com.prgate.metrics.application.dto.AnalysisCompletedEvent> analyses(@RequestAttribute("verifiedActorId") UUID actor,
+            @PathVariable UUID projectId,@RequestParam long repositoryId,@RequestParam String gitRef,
+            @RequestParam(defaultValue="0") int page,@RequestParam(defaultValue="20") int size) {
+        return service.analyses(actor,projectId,repositoryId,gitRef,page,size);
+    }
+    @GetMapping("/configurations")
+    public List<ConfigurationResource> configurations(@RequestAttribute("verifiedActorId") UUID actor,@PathVariable UUID projectId,
+                                                      @RequestParam long repositoryId) {
+        return service.configurations(actor,projectId,repositoryId).stream().map(ConfigurationResource::from).toList();
+    }
     @PostMapping("/rubrics/{rubricId}/versions")
     @ResponseStatus(HttpStatus.CREATED)
     public RubricResource version(@RequestAttribute("verifiedActorId") UUID actor, @PathVariable UUID projectId,
@@ -113,7 +133,7 @@ public class EvaluationController {
         }
     }
     public record ConfigurationRequest(@NotNull UUID rubricId, @Min(1) int rubricVersion,
-            @Positive long repositoryId, @NotBlank @Size(max=1024) String gitRef, @NotNull UUID planId,
+            @Positive long repositoryId, @NotBlank @Size(max=1024) String gitRef, UUID planId,
             @NotEmpty @Size(max=500) List<@NotNull @Valid CheckRequest> checks) { }
     public record CheckRequest(UUID id, @NotNull UUID criterionId,
             @NotNull @Pattern(regexp="METRIC|RULE|MANUAL") String type,

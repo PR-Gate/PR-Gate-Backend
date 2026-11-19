@@ -24,6 +24,12 @@ public class PipelineRunQueryAdapter implements PipelineRunQueryPort {
     }
 
     @Override
+    public List<PipelineRun> findByProject(UUID projectId, int page, int size) {
+        var pageable = PageRequest.of(page, size, Sort.by(Sort.Direction.DESC, "createdAt", "id"));
+        return repository.findByAcademicProjectId(projectId, pageable).stream().map(mapper::toDomain).toList();
+    }
+
+    @Override
     public Optional<PipelineRun> findById(UUID id) {
         return repository.findById(id).map(mapper::toDomain);
     }

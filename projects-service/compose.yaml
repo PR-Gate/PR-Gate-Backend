@@ -30,6 +30,11 @@ services:
       DB_PASSWORD: ${DB_PASSWORD:?Set DB_PASSWORD in .env}
       PRGATE_LOCAL_USERS: ${PROJECTS_LOCAL_USERS:-}
       METRICS_PROJECTS_TOKEN: ${METRICS_PROJECTS_TOKEN:-}
+      PROJECTS_USERS_REMOTE_ENABLED: ${PROJECTS_USERS_REMOTE_ENABLED:-false}
+      USERS_BASE_URL: http://host.docker.internal:8080
+      USERS_SERVICE_TOKEN: ${USERS_SERVICE_TOKEN:-}
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
     depends_on:
       postgres:
         condition: service_healthy

@@ -20,11 +20,12 @@ public final class EvaluationRepository {
     private RepositoryProvisioningStatus status;
 
     private EvaluationRepository(EvaluationRepositoryId id, AcademicProjectId projectId,
-                                  GitHubRepository githubRepository, String analysisBranch, Instant registeredAt) {
+                                  GitHubRepository githubRepository, String analysisBranch, Instant registeredAt,
+                                  SonarProjectKey sonarProjectKey) {
         this.id = Objects.requireNonNull(id, "Repository id is required");
         this.projectId = Objects.requireNonNull(projectId, "Academic project is required");
         this.githubRepository = Objects.requireNonNull(githubRepository, "GitHub repository is required");
-        this.sonarProjectKey = SonarProjectKey.forRepository(id);
+        this.sonarProjectKey = Objects.requireNonNull(sonarProjectKey);
         Objects.requireNonNull(analysisBranch, "Analysis branch is required");
         if (analysisBranch.isBlank() || analysisBranch.length() > 255
                 || !analysisBranch.equals(analysisBranch.strip())) {
@@ -38,7 +39,12 @@ public final class EvaluationRepository {
 
     public static EvaluationRepository register(EvaluationRepositoryId id, AcademicProjectId projectId,
                                                 GitHubRepository repository, String analysisBranch, Instant now) {
-        return new EvaluationRepository(id, projectId, repository, analysisBranch, now);
+        return register(id, projectId, repository, analysisBranch, now, SonarProjectKey.forRepository(id));
+    }
+
+    public static EvaluationRepository register(EvaluationRepositoryId id, AcademicProjectId projectId,
+            GitHubRepository repository, String analysisBranch, Instant now, SonarProjectKey sonarProjectKey) {
+        return new EvaluationRepository(id, projectId, repository, analysisBranch, now, sonarProjectKey);
     }
 
     public void markProvisioned(Instant now) { transitionTo(RepositoryProvisioningStatus.READY, now); }
@@ -46,7 +52,14 @@ public final class EvaluationRepository {
     public static EvaluationRepository reconstitute(EvaluationRepositoryId id, AcademicProjectId projectId,
             GitHubRepository repository, String branch, Instant registeredAt, Instant updatedAt,
             RepositoryProvisioningStatus status) {
-        EvaluationRepository result = register(id, projectId, repository, branch, registeredAt);
+        return reconstitute(id, projectId, repository, branch, registeredAt, updatedAt, status,
+                SonarProjectKey.forRepository(id));
+    }
+
+    public static EvaluationRepository reconstitute(EvaluationRepositoryId id, AcademicProjectId projectId,
+            GitHubRepository repository, String branch, Instant registeredAt, Instant updatedAt,
+            RepositoryProvisioningStatus status, SonarProjectKey sonarProjectKey) {
+        EvaluationRepository result = register(id, projectId, repository, branch, registeredAt, sonarProjectKey);
         Objects.requireNonNull(updatedAt, "Update time is required");
         if (updatedAt.isBefore(registeredAt)) {
             throw new IllegalArgumentException("Update time cannot precede registration");

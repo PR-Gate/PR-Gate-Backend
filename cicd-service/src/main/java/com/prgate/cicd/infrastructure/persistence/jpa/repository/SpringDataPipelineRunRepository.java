@@ -7,6 +7,7 @@ import java.util.Optional;
 import java.util.UUID;
 
 public interface SpringDataPipelineRunRepository extends JpaRepository<PipelineRunEntity, UUID> {
+    java.util.List<PipelineRunEntity> findByAcademicProjectId(UUID projectId, org.springframework.data.domain.Pageable pageable);
 
     java.util.List<PipelineRunEntity> findByGithubRepositoryId(long repositoryId, org.springframework.data.domain.Pageable pageable);
 

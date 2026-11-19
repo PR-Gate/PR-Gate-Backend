@@ -34,5 +34,7 @@ services:
       KEYCLOAK_JWK_SET_URI: http://host.docker.internal:8090/realms/prgate/protocol/openid-connect/certs
       KEYCLOAK_AUDIENCE: prgate-api
       KEYCLOAK_CLIENT_ID: prgate-frontend
+      METRICS_BASE_URL: ${DOCKER_METRICS_URL:-http://host.docker.internal:8084}
+      PROJECTS_BASE_URL: ${DOCKER_PROJECTS_URL:-http://host.docker.internal:8083}
 volumes:
   users-db-data:

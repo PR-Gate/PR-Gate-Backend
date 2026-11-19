@@ -19,7 +19,7 @@ class RepositoryPilotRunnerTest {
         var command = new ConfigureRepositoryEvaluationCommand(project,1432721468L,"PR-Gate","PR-Gate-Backend","feat/ci-cd-service");
         when(configure.configure(command)).thenReturn(new ConfigureRepositoryEvaluationUseCase.Result(
                 EvaluationRepositoryId.generate(), RepositoryProvisioningStatus.READY));
-        new RepositoryPilotRunner(configure,context,project,1432721468L,"PR-Gate","PR-Gate-Backend","feat/ci-cd-service").run(null);
+        new RepositoryPilotRunner(configure,context,project,1432721468L,"PR-Gate","PR-Gate-Backend","feat/ci-cd-service","",null,null).run(null);
         verify(configure).configure(command);
         verify(context).close();
     }
@@ -29,7 +29,7 @@ class RepositoryPilotRunnerTest {
         var configure = mock(ConfigureRepositoryEvaluationUseCase.class);
         var context = mock(ConfigurableApplicationContext.class);
         when(configure.configure(any())).thenThrow(new IllegalStateException("Sonar unavailable"));
-        var runner = new RepositoryPilotRunner(configure,context,UUID.randomUUID(),1432721468L,"PR-Gate","PR-Gate-Backend","feat/ci-cd-service");
+        var runner = new RepositoryPilotRunner(configure,context,UUID.randomUUID(),1432721468L,"PR-Gate","PR-Gate-Backend","feat/ci-cd-service","",null,null);
         assertThrows(IllegalStateException.class, () -> runner.run(null));
         verify(context).close();
     }

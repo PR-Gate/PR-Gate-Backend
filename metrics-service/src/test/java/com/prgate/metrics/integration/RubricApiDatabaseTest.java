@@ -5,6 +5,7 @@ import com.prgate.metrics.application.dto.AnalysisCompletedEvent;
 import com.prgate.metrics.application.port.in.ReceiveAnalysisUseCase;
 import com.prgate.metrics.application.port.out.*;
 import com.prgate.metrics.infrastructure.inbound.messaging.*;
+import com.prgate.metrics.infrastructure.outbound.ai.AiGradeEstimatorHttpAdapter;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.condition.EnabledIfEnvironmentVariable;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -22,17 +23,19 @@ import static org.mockito.Mockito.*;
 @SpringBootTest(webEnvironment=SpringBootTest.WebEnvironment.RANDOM_PORT,properties={
         "spring.datasource.url=${METRICS_TEST_DATABASE_URL}","spring.datasource.username=prgate_test",
         "spring.datasource.password=test","spring.rabbitmq.username=test","spring.rabbitmq.password=test",
-        "spring.rabbitmq.listener.simple.auto-startup=false","spring.rabbitmq.dynamic=false","app.api.token=test-api"})
+        "spring.rabbitmq.listener.simple.auto-startup=false","spring.rabbitmq.dynamic=false","app.api.token=test-api",
+        "app.evaluation.estimate-delay-ms=3600000"})
 class RubricApiDatabaseTest {
     @Autowired TestRestTemplate http;
     @Autowired ObjectMapper json;
     @Autowired JdbcTemplate jdbc;
     @Autowired ReceiveAnalysisUseCase receiver;
+    @Autowired GradeEstimateWorker gradeWorker;
     @MockBean ProjectAccessPort access;
     @MockBean SonarEvidencePort sonar;
     @MockBean EvaluationWorker worker;
     @MockBean QualityGateMessaging messaging;
-    @MockBean GradeEstimatorPort estimator;
+    @MockBean AiGradeEstimatorHttpAdapter estimator;
 
     @Test void persistsTwentyPointRubricDeduplicatesEvaluationsAndEnforcesProjectPermissions() throws Exception {
         UUID actor=UUID.randomUUID(), student=UUID.randomUUID(), outsider=UUID.randomUUID(), project=UUID.randomUUID();
@@ -98,15 +101,73 @@ class RubricApiDatabaseTest {
             return "{\"id\":\""+UUID.randomUUID()+"\",\"evaluationId\":\""+evaluationId+"\",\"officialGrade\":false,\"estimatedScore\":18,\"maxScore\":20}";
         });
         assertEquals(HttpStatus.FORBIDDEN,call(project,student,"/evaluations/"+evaluationId+"/grade-estimate",HttpMethod.POST,null).getStatusCode());
+        assertEquals(HttpStatus.NOT_FOUND,call(project,student,"/evaluations/"+evaluationId+"/grade-estimate",HttpMethod.GET,null).getStatusCode());
+        gradeWorker.processNext();
+        assertEquals(18,call(project,student,"/evaluations/"+evaluationId+"/grade-estimate",HttpMethod.GET,null).getBody().path("estimatedScore").asInt());
         var estimate=call(project,actor,"/evaluations/"+evaluationId+"/grade-estimate",HttpMethod.POST,null);
         assertEquals(HttpStatus.OK,estimate.getStatusCode(),estimate.toString());
         assertFalse(estimate.getBody().path("officialGrade").asBoolean());
         assertEquals(18,call(project,student,"/evaluations/"+evaluationId+"/grade-estimate",HttpMethod.GET,null).getBody().path("estimatedScore").asInt());
+        verify(estimator,times(1)).estimate(any());
+
+        UUID practiceEvent = UUID.randomUUID();
+        receiver.receive(new AnalysisCompletedEvent(1, AnalysisCompletedEvent.TYPE, practiceEvent, Instant.now(),
+                repository, "example/backend", "refs/heads/main", "b".repeat(40), 457, 1,
+                "example-backend", "practice-task", "practice-analysis", Instant.now(), "ERROR", Map.of()));
+        jdbc.update("UPDATE metrics.analysis_evidence SET state='COLLECTED',measures=CAST(? AS jsonb) WHERE event_id=?",
+                "{\"coverage\":20}", practiceEvent);
+        assertEquals(HttpStatus.OK, call(project, actor, "/evaluations", HttpMethod.POST,
+                "{\"configurationId\":\"" + configuration + "\",\"eventId\":\"" + practiceEvent + "\"}").getStatusCode());
+        when(estimator.practiceQuestions(anyList())).thenReturn(json.readTree("""
+                [{"prompt":"Pregunta 1","options":["a","b","c","d"],"correctOption":0,"explanation":"Detalle 1"},
+                 {"prompt":"Pregunta 2","options":["a","b","c","d"],"correctOption":1,"explanation":"Detalle 2"},
+                 {"prompt":"Pregunta 3","options":["a","b","c","d"],"correctOption":2,"explanation":"Detalle 3"}]
+                """));
+        var practice = call(project, student, "/practice", HttpMethod.POST, "{}");
+        assertEquals(HttpStatus.OK, practice.getStatusCode(), practice.toString());
+        assertTrue(practice.getBody().path("questions").get(0).path("correctOption").isNull());
+        String submit = "/practice/" + practice.getBody().path("id").asText() + "/submit";
+        assertEquals(HttpStatus.NOT_FOUND, call(project, actor, submit, HttpMethod.POST,
+                "{\"answers\":[0,1,0]}").getStatusCode());
+        var completed = call(project, student, submit, HttpMethod.POST, "{\"answers\":[0,1,0]}");
+        assertEquals(HttpStatus.OK, completed.getStatusCode(), completed.toString());
+        assertEquals(2, completed.getBody().path("correctCount").asInt());
+        assertEquals("Detalle 1", completed.getBody().path("questions").get(0).path("explanation").asText());
     }
+    @Test void courseAllowsOneRubricAndCanArchiveItWithoutLosingVersions() throws Exception {
+        UUID course = UUID.randomUUID(), teacher = UUID.randomUUID(), student = UUID.randomUUID();
+        when(access.checkCourse(course, teacher)).thenReturn(new ProjectAccessPort.Access(true, true, null));
+        when(access.checkCourse(course, student)).thenReturn(new ProjectAccessPort.Access(true, false, null));
+        String path = "/internal/v1/courses/" + course + "/rubrics";
+        String body = """
+                {"title":"Code quality","criteria":[
+                  {"id":"%s","description":"Duplication","objective":"Review duplication","maxPoints":20}]}
+                """.formatted(UUID.randomUUID());
+        var first = request(teacher, path, HttpMethod.POST, body);
+        assertEquals(HttpStatus.CREATED, first.getStatusCode());
+        String rubricId = first.getBody().path("id").asText();
+        String versions = path + "/" + rubricId + "/versions";
+        String archive = path + "/" + rubricId + "/archive";
+        assertEquals(HttpStatus.CONFLICT, request(teacher, path, HttpMethod.POST, body).getStatusCode());
+        assertEquals(2, request(teacher, versions, HttpMethod.POST, body).getBody().path("version").asInt());
+        assertEquals(HttpStatus.FORBIDDEN, request(student, archive, HttpMethod.POST, null).getStatusCode());
+        assertEquals(HttpStatus.NO_CONTENT, request(teacher, archive, HttpMethod.POST, null).getStatusCode());
+        assertEquals(0, request(student, path, HttpMethod.GET, null).getBody().size());
+        assertEquals(HttpStatus.NOT_FOUND, request(teacher, versions, HttpMethod.POST, body).getStatusCode());
+        assertEquals(2, jdbc.queryForObject("""
+                SELECT count(*) FROM metrics.published_rubrics WHERE rubric_id=? AND archived_at IS NOT NULL
+                """, Integer.class, UUID.fromString(rubricId)));
+        assertEquals(HttpStatus.CREATED, request(teacher, path, HttpMethod.POST, body).getStatusCode());
+    }
+
     private ResponseEntity<JsonNode> call(UUID project,UUID actor,String path,HttpMethod method,String body) throws Exception {
+        return request(actor, "/internal/v1/projects/" + project + path, method, body);
+    }
+
+    private ResponseEntity<JsonNode> request(UUID actor,String path,HttpMethod method,String body) throws Exception {
         var headers=new HttpHeaders(); headers.setBearerAuth("test-api"); headers.set("X-Actor-Id",actor.toString());
         headers.setContentType(MediaType.APPLICATION_JSON);
-        return http.exchange("/internal/v1/projects/"+project+path,method,
+        return http.exchange(path,method,
                 new HttpEntity<>(body==null?null:json.readTree(body),headers),JsonNode.class);
     }
 }

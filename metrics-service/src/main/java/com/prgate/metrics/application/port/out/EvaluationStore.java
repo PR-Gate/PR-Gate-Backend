@@ -7,7 +7,13 @@ import java.util.*;
 
 public interface EvaluationStore {
     void saveRubric(UUID projectId, PublishedRubric rubric, UUID actorId);
+    void lockCourseRubrics(UUID courseId);
+    boolean archiveCourseRubric(UUID courseId, UUID rubricId);
     Optional<PublishedRubric> rubric(UUID projectId, UUID rubricId, int version);
+    List<PublishedRubric> rubrics(UUID projectId,int page,int size);
+    List<StoredConfiguration> configurations(UUID projectId,long repositoryId);
+    List<RepositoryChoice> repositories(String organization);
+    List<AnalysisCompletedEvent> analyses(String organization,long repositoryId,String gitRef,int page,int size);
     int latestRubricVersion(UUID projectId, UUID rubricId);
     void activateConfiguration(StoredConfiguration configuration);
     Optional<StoredConfiguration> configuration(UUID id);
@@ -25,6 +31,7 @@ public interface EvaluationStore {
             java.util.function.Function<StoredEvaluation, StoredEvaluation> review);
 
     record Evidence(String state, Map<String, BigDecimal> measures) { }
+    record RepositoryChoice(long id,String fullName,String gitRef,java.time.Instant lastAnalyzedAt) { }
     record PendingEvaluation(UUID configurationId, UUID eventId) { }
     record StoredEvaluation(UUID id, UUID projectId, UUID configurationId, UUID eventId,
             long repositoryId, String gitRef, String commitSha, String status,

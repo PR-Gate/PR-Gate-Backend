@@ -7,6 +7,8 @@ import com.prgate.projects.application.exception.UserDirectoryException;
 import com.prgate.projects.application.exception.UserNotFoundException;
 import com.prgate.projects.application.model.UserAccount;
 import com.prgate.projects.application.port.out.CourseRepository;
+import com.prgate.projects.application.port.out.CourseEnrollmentRepository;
+import com.prgate.projects.application.port.out.ProjectMembershipRepository;
 import com.prgate.projects.application.port.out.ProjectRepository;
 import com.prgate.projects.application.port.out.UserDirectory;
 import com.prgate.projects.application.result.CreateProjectResult;
@@ -61,12 +63,16 @@ class CreateProjectServiceTest {
 
     @Mock
     private UserDirectory users;
+    @Mock
+    private CourseEnrollmentRepository enrollments;
+    @Mock
+    private ProjectMembershipRepository memberships;
 
     private CreateProjectService service;
 
     @BeforeEach
     void setUp() {
-        service = new CreateProjectService(courses, projects, users, Clock.fixed(NOW, ZoneOffset.UTC));
+        service = new CreateProjectService(courses, projects, enrollments, memberships, users, Clock.fixed(NOW, ZoneOffset.UTC));
     }
 
     @Test
@@ -89,12 +95,36 @@ class CreateProjectServiceTest {
 
     @ParameterizedTest
     @CsvSource({"STUDENT, ACTIVE", "ADMIN, ACTIVE", "TEACHER, INACTIVE", "STUDENT, INACTIVE", "ADMIN, INACTIVE"})
-    void rejectsUsersWhoAreNotActiveTeachers(UserAccount.Role role, UserAccount.Status status) {
+    void rejectsInactiveUsersAdminsAndStudentsWithoutApprovedEnrollment(UserAccount.Role role, UserAccount.Status status) {
         when(users.findById(TEACHER_ID)).thenReturn(Optional.of(new UserAccount(TEACHER_ID, role, status)));
 
         assertThatThrownBy(() -> service.handle(COMMAND, ACTOR)).isInstanceOf(AccessDeniedException.class);
 
         verifyNoInteractions(courses, projects);
+    }
+
+    @Test
+    void approvedStudentCreatesProjectAsItsLeaderAndMember() {
+        UUID userId = UUID.randomUUID();
+        var studentId = new com.prgate.projects.domain.model.valueobject.StudentId(userId);
+        var enrollment = com.prgate.projects.domain.model.aggregates.CourseEnrollment.request(
+                new com.prgate.projects.domain.model.valueobject.CourseEnrollmentId(UUID.randomUUID()),
+                COURSE.getId(), studentId, NOW.minusSeconds(60));
+        enrollment.approve(NOW.minusSeconds(30));
+        when(users.findById(userId)).thenReturn(Optional.of(
+                new UserAccount(userId, UserAccount.Role.STUDENT, UserAccount.Status.ACTIVE)));
+        when(enrollments.findApproved(COURSE.getId(), studentId)).thenReturn(Optional.of(enrollment));
+        when(courses.findById(COURSE.getId())).thenReturn(Optional.of(COURSE));
+
+        var result = service.handle(COMMAND, new Actor(userId));
+
+        var project = ArgumentCaptor.forClass(Project.class);
+        verify(projects).save(project.capture());
+        assertThat(project.getValue().getLeaderId()).contains(studentId);
+        var membership = ArgumentCaptor.forClass(com.prgate.projects.domain.model.aggregates.ProjectMembership.class);
+        verify(memberships).add(membership.capture());
+        assertThat(membership.getValue().getProjectId().value()).isEqualTo(result.id());
+        assertThat(membership.getValue().getStudentId()).isEqualTo(studentId);
     }
 
     @Test

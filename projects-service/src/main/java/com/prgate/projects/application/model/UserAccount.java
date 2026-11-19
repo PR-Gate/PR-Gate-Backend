@@ -4,7 +4,11 @@ import java.util.Objects;
 import java.util.UUID;
 
 /** Minimal local projection of Users; not a persisted profile or a domain entity. */
-public record UserAccount(UUID id, Role role, Status status) {
+public record UserAccount(UUID id, Role role, Status status, String displayName) {
+
+    public UserAccount(UUID id, Role role, Status status) {
+        this(id, role, status, null);
+    }
 
     public UserAccount {
         Objects.requireNonNull(id, "User id is required");

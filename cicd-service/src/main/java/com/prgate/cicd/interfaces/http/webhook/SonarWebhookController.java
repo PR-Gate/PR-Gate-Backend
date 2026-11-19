@@ -36,8 +36,10 @@ public class SonarWebhookController {
         String taskId = payload.path("taskId").asText("");
         boolean firstDelivery = receipts.record(body, projectKey, taskId.isBlank() ? null : taskId, status);
         // Receipt is not proof of a correlated pipeline result.
-        if (!"SUCCESS".equals(payload.path("status").asText())
-                || payload.path("properties").path("sonar.analysis.prgateRunId").asText().isBlank()) {
+        var properties = payload.path("properties");
+        if (!"SUCCESS".equals(status)
+                || (properties.path("sonar.analysis.prgateRunId").asText().isBlank()
+                && properties.path("sonar.analysis.prgateWorkflowRunId").asText().isBlank())) {
             return ResponseEntity.accepted().body(new Receipt("SONAR_RECEIVED_UNCORRELATED", projectKey, taskId, !firstDelivery));
         }
         inbox.enqueue(body);

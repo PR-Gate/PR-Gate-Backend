@@ -25,11 +25,30 @@ import java.util.UUID;
 @Profile("local")
 public class LocalSecurityConfiguration {
     @Bean
-    SecurityFilterChain localSecurity(HttpSecurity http, SecurityProblemHandler problems) throws Exception {
+    SecurityFilterChain localSecurity(HttpSecurity http, SecurityProblemHandler problems,
+            org.springframework.beans.factory.ObjectProvider<com.prgate.projects.infrastructure.users.RemoteUserDirectory> directory) throws Exception {
         var filter = new OncePerRequestFilter() {
             @Override
             protected void doFilterInternal(HttpServletRequest request, HttpServletResponse response, FilterChain chain)
                     throws ServletException, IOException {
+                var remote = directory.getIfAvailable();
+                if (remote != null) {
+                    String bearer = request.getHeader("Authorization");
+                    if (bearer != null && bearer.startsWith("Bearer ")) {
+                        try {
+                            remote.authenticate(bearer).ifPresent(id -> {
+                                var context = SecurityContextHolder.createEmptyContext();
+                                context.setAuthentication(new UsernamePasswordAuthenticationToken(new Actor(id), null, List.of()));
+                                SecurityContextHolder.setContext(context);
+                            });
+                        } catch (com.prgate.projects.application.exception.UserDirectoryException exception) {
+                            response.sendError(HttpServletResponse.SC_SERVICE_UNAVAILABLE);
+                            return;
+                        }
+                    }
+                    chain.doFilter(request, response);
+                    return;
+                }
                 String value = request.getHeader("X-User-Id");
                 if (value != null) {
                     try {

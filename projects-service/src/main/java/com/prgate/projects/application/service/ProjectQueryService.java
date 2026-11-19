@@ -81,7 +81,14 @@ public final class ProjectQueryService implements ProjectQueries {
             throw new AccessDeniedException("Only the responsible teacher can list enrollment requests");
         }
         requireCourseAccess(courseId, user);
-        return reads.enrollments(courseId, page);
+        var result = reads.enrollments(courseId, page);
+        var names = new java.util.HashMap<UUID, java.util.Optional<String>>();
+        var items = result.items().stream().map(enrollment -> enrollment.withStudentName(
+                names.computeIfAbsent(enrollment.studentId(), id -> users.findById(id)
+                        .filter(account -> id.equals(account.id()))
+                        .map(UserAccount::displayName)
+                        .filter(name -> !name.isBlank())).orElse(null))).toList();
+        return new PageResult<>(items, result.page(), result.size(), result.hasNext());
     }
     @Override
     public PageResult<CourseEnrollmentResult> ownEnrollments(Actor actor, PageRequest page) {

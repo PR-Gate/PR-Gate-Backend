@@ -19,6 +19,8 @@ import java.util.*;
 /** Historical global measures only; never combines a new revision's values with an old task. */
 @Component
 public class SonarEvidenceHttpAdapter implements SonarEvidencePort {
+    private static final DateTimeFormatter SONAR_TIMESTAMP =
+            DateTimeFormatter.ofPattern("uuuu-MM-dd'T'HH:mm:ssxx").withZone(ZoneOffset.UTC);
     private final HttpClient client = HttpClient.newBuilder().connectTimeout(Duration.ofSeconds(5)).build();
     private final ObjectMapper json;
     private final String baseUrl;
@@ -39,8 +41,8 @@ public class SonarEvidenceHttpAdapter implements SonarEvidencePort {
                 || !event.sonarAnalysisId().equals(task.path("analysisId").asText()))
             throw new EvidenceUnavailable("TASK_ANALYSIS_MISMATCH");
         Instant timestamp = event.analyzedAt().truncatedTo(ChronoUnit.SECONDS);
-        String interval = "&from=" + encode(timestamp.minusSeconds(1).toString())
-                + "&to=" + encode(timestamp.plusSeconds(1).toString());
+        String interval = "&from=" + encode(SONAR_TIMESTAMP.format(timestamp.minusSeconds(1)))
+                + "&to=" + encode(SONAR_TIMESTAMP.format(timestamp.plusSeconds(1)));
         var search = get("/api/project_analyses/search?project=" + encode(event.sonarProjectKey()) + interval + "&ps=100");
         if (!search.path("analyses").isArray() || !search.path("paging").path("total").isIntegralNumber()
                 || search.path("paging").path("total").asInt() != search.path("analyses").size())

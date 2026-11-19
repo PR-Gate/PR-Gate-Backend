@@ -49,4 +49,67 @@ public class AiGradeEstimatorHttpAdapter implements GradeEstimatorPort {
             Thread.currentThread().interrupt(); throw new IllegalStateException("AI estimation interrupted");
         } catch (java.io.IOException exception) { throw new IllegalStateException("AI estimation unavailable"); }
     }
+
+    public com.fasterxml.jackson.databind.JsonNode propose(
+            com.prgate.metrics.domain.model.valueobjects.PublishedRubric rubric, String language) {
+        if (token.isBlank()) throw new IllegalStateException("AI backend credentials are not configured");
+        var body = java.util.Map.of("rubricId", rubric.id().value().toString(),
+                "rubricVersion", rubric.version().value(), "language", language,
+                "criteria", rubric.criteria().stream().map(c -> java.util.Map.of(
+                        "id", c.id().value(), "description", c.description(), "objective", c.objective())).toList());
+        try {
+            var request = HttpRequest.newBuilder(URI.create(baseUrl + "/api/technical-plans"))
+                    .timeout(Duration.ofSeconds(125)).header("Authorization", "Bearer " + token)
+                    .header("Content-Type", "application/json")
+                    .POST(HttpRequest.BodyPublishers.ofString(json.writeValueAsString(body))).build();
+            var response = client.send(request, HttpResponse.BodyHandlers.ofString());
+            if (response.statusCode() != 201) throw new IllegalStateException("AI proposal unavailable");
+            var plan = json.readTree(response.body());
+            if (!rubric.id().value().toString().equals(plan.path("rubricId").asText())
+                    || rubric.version().value() != plan.path("rubricVersion").asInt()
+                    || !plan.path("checks").isArray()) throw new IllegalStateException("Invalid AI proposal");
+            return plan;
+        } catch (InterruptedException exception) {
+            Thread.currentThread().interrupt();
+            throw new IllegalStateException("AI proposal interrupted");
+        } catch (java.io.IOException exception) {
+            throw new IllegalStateException("AI proposal unavailable");
+        }
+    }
+
+    public com.fasterxml.jackson.databind.JsonNode analyzeDocument(String text) {
+        if (token.isBlank()) throw new IllegalStateException("AI backend credentials are not configured");
+        try {
+            var request = HttpRequest.newBuilder(URI.create(baseUrl + "/api/rubric-documents/analysis"))
+                    .timeout(Duration.ofSeconds(125)).header("Authorization", "Bearer " + token)
+                    .header("Content-Type", "application/json")
+                    .POST(HttpRequest.BodyPublishers.ofString(json.writeValueAsString(java.util.Map.of("text", text)))).build();
+            var response = client.send(request, HttpResponse.BodyHandlers.ofString());
+            if (response.statusCode() != 200) throw new IllegalStateException("AI document analysis unavailable");
+            return json.readTree(response.body());
+        } catch (InterruptedException exception) {
+            Thread.currentThread().interrupt();
+            throw new IllegalStateException("AI document analysis interrupted");
+        } catch (java.io.IOException exception) {
+            throw new IllegalStateException("AI document analysis unavailable");
+        }
+    }
+
+    public com.fasterxml.jackson.databind.JsonNode practiceQuestions(java.util.List<String> findings) {
+        if (token.isBlank()) throw new IllegalStateException("AI backend credentials are not configured");
+        try {
+            var request = HttpRequest.newBuilder(URI.create(baseUrl + "/api/practice-questions"))
+                    .timeout(Duration.ofSeconds(125)).header("Authorization", "Bearer " + token)
+                    .header("Content-Type", "application/json")
+                    .POST(HttpRequest.BodyPublishers.ofString(json.writeValueAsString(java.util.Map.of("findings", findings)))).build();
+            var response = client.send(request, HttpResponse.BodyHandlers.ofString());
+            if (response.statusCode() != 200) throw new IllegalStateException("Practice questions unavailable");
+            return json.readTree(response.body()).path("questions");
+        } catch (InterruptedException failure) {
+            Thread.currentThread().interrupt();
+            throw new IllegalStateException("Practice generation interrupted");
+        } catch (java.io.IOException failure) {
+            throw new IllegalStateException("Practice questions unavailable");
+        }
+    }
 }

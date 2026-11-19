@@ -2,12 +2,15 @@ package com.prgate.projects.infrastructure.github;
 
 import com.prgate.projects.application.exception.GitHubDirectoryException;
 import com.prgate.projects.domain.model.valueobject.GitHubOrganization;
+import com.fasterxml.jackson.databind.DeserializationFeature;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.ValueSource;
 import org.springframework.http.HttpStatusCode;
 import org.springframework.http.MediaType;
+import org.springframework.http.converter.json.MappingJackson2HttpMessageConverter;
 import org.springframework.test.web.client.MockRestServiceServer;
 import org.springframework.web.client.RestClient;
 import static org.assertj.core.api.Assertions.assertThat;
@@ -23,6 +26,11 @@ class HttpGitHubOrganizationDirectoryTest {
     @BeforeEach
     void setup() {
         var builder = RestClient.builder().baseUrl("https://api.github.com");
+        builder.messageConverters(converters -> {
+            converters.removeIf(MappingJackson2HttpMessageConverter.class::isInstance);
+            converters.add(new MappingJackson2HttpMessageConverter(
+                    new ObjectMapper().enable(DeserializationFeature.FAIL_ON_UNKNOWN_PROPERTIES)));
+        });
         server = MockRestServiceServer.bindTo(builder).build();
         directory = new HttpGitHubOrganizationDirectory(builder.build());
     }
@@ -30,7 +38,9 @@ class HttpGitHubOrganizationDirectoryTest {
     @Test
     void returnsVerifiedCanonicalMetadata() {
         server.expect(requestTo("https://api.github.com/orgs/prgate"))
-                .andRespond(withSuccess("{\"id\":42,\"login\":\"PRGate\",\"type\":\"Organization\"}", MediaType.APPLICATION_JSON));
+                .andRespond(withSuccess("""
+                        {"id":42,"login":"PRGate","type":"Organization","public_repos":0,"description":null}
+                        """, MediaType.APPLICATION_JSON));
         assertThat(directory.findByLogin(" PRGate ")).contains(new GitHubOrganization(42, "prgate"));
         server.verify();
     }

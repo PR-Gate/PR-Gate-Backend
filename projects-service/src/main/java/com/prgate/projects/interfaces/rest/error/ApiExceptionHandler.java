@@ -41,6 +41,7 @@ public class ApiExceptionHandler {
     ResponseEntity<ProblemDetail> malformed(Exception error) { return problem(HttpStatus.BAD_REQUEST,"Invalid request fields, parameters or JSON"); }
     @ExceptionHandler({UserDirectoryException.class, GitHubDirectoryException.class})
     ResponseEntity<ProblemDetail> unavailable(RuntimeException error) {
+        LOG.warn("Projects dependency failure: {}: {}", error.getClass().getSimpleName(), error.getMessage());
         return problem(HttpStatus.SERVICE_UNAVAILABLE,"An external dependency is unavailable or returned an invalid response");
     }
     @ExceptionHandler(Exception.class)

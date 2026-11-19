@@ -62,16 +62,28 @@ public class SonarWebhookInboxWorker {
                 QualityGateStatus.valueOf(text(payload.path("qualityGate"), "status")), metrics,
                 URI.create(text(payload.path("project"), "url")),
                 parseTimestamp(text(payload, "analysedAt")));
-        String branch = text(properties, "sonar.analysis.prgateBranch");
+        boolean workflowMetadata = properties.has("sonar.analysis.prgateWorkflowRunId");
+        String branch = workflowMetadata ? branchFromRef(properties) : text(properties, "sonar.analysis.prgateBranch");
+        String runIdField = workflowMetadata ? "sonar.analysis.prgateWorkflowRunId" : "sonar.analysis.prgateRunId";
+        String attemptField = workflowMetadata ? "sonar.analysis.prgateWorkflowRunAttempt" : "sonar.analysis.prgateRunAttempt";
         // Sonar's logical main-branch label may differ from the Git ref analyzed.
         // The trusted workflow supplies the Git ref; the application also verifies its commit and attempt.
         if (payload.path("branch").has("isMain") && !payload.path("branch").path("isMain").asBoolean()) {
             throw new IllegalArgumentException("Community Build expects its main analysis branch");
         }
         return new RecordSonarAnalysisCommand(Long.parseLong(text(properties, "sonar.analysis.prgateRepositoryId")),
-                new GitHubWorkflowRunId(Long.parseLong(text(properties, "sonar.analysis.prgateRunId"))),
-                new GitHubRunAttempt(Integer.parseInt(text(properties, "sonar.analysis.prgateRunAttempt"))),
+                new GitHubWorkflowRunId(Long.parseLong(text(properties, runIdField))),
+                new GitHubRunAttempt(Integer.parseInt(text(properties, attemptField))),
                 new SonarProjectKey(projectKey), branch, new GitCommitSha(text(payload, "revision")), analysis);
+    }
+
+    private static String branchFromRef(JsonNode properties) {
+        String ref = text(properties, "sonar.analysis.prgatePushRef");
+        String prefix = "refs/heads/";
+        if (!ref.startsWith(prefix) || ref.length() == prefix.length()) {
+            throw new IllegalArgumentException("Sonar analysis requires a branch ref");
+        }
+        return ref.substring(prefix.length());
     }
 
     private static String text(JsonNode node, String key) {

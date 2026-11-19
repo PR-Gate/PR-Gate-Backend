@@ -19,7 +19,14 @@ public class GradeEstimationService {
     public String generate(UUID actor,UUID project,UUID evaluationId) {
         var rights=access.check(project,actor);
         if (!rights.mayRead() || !rights.mayManage()) throw new EvaluationAccessDenied();
-        var evidence=evaluations.estimationEvidence(actor,project,evaluationId);
+        return generateForEvidence(evaluations.estimationEvidence(actor,project,evaluationId));
+    }
+
+    public void generateForWorker(UUID evaluationId) {
+        generateForEvidence(evaluations.estimationEvidenceForWorker(evaluationId));
+    }
+
+    private String generateForEvidence(GradeEstimationEvidence evidence) {
         String hash=hash(evidence);
         return estimates.find(hash).orElseGet(()->{
             String result=estimator.estimate(evidence);

@@ -171,7 +171,10 @@ class JpaProjectRepositoryIT {
     void createProjectUseCasePersistsWithRealRepositoriesAndSimulatedUsers() {
         Course course = savedCourse();
         UserDirectory users = id -> Optional.of(new UserAccount(id, UserAccount.Role.TEACHER, UserAccount.Status.ACTIVE));
-        CreateProjectService service = new CreateProjectService(courses, projects, users, Clock.fixed(NOW, ZoneOffset.UTC));
+        CreateProjectService service = new CreateProjectService(courses, projects,
+                org.mockito.Mockito.mock(com.prgate.projects.application.port.out.CourseEnrollmentRepository.class),
+                org.mockito.Mockito.mock(com.prgate.projects.application.port.out.ProjectMembershipRepository.class),
+                users, Clock.fixed(NOW, ZoneOffset.UTC));
 
         CreateProjectResult result = service.handle(new CreateProjectCommand(course.getId().value(), "Grupo 2", ""),
                 new Actor(course.getTeacherId().value()));

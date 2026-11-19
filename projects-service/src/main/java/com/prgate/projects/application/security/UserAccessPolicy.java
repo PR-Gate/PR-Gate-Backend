@@ -35,14 +35,27 @@ public final class UserAccessPolicy {
     }
 
     private UserAccount requireActiveUser(Actor actor, UserAccount.Role expectedRole) {
+        UserAccount user = resolveUser(actor);
+        if (user.status() != UserAccount.Status.ACTIVE || user.role() != expectedRole) {
+            throw new AccessDeniedException("An active " + expectedRole.name().toLowerCase(Locale.ROOT) + " is required");
+        }
+        return user;
+    }
+
+    public UserAccount requireActiveUser(Actor actor) {
+        UserAccount user = resolveUser(actor);
+        if (user.status() != UserAccount.Status.ACTIVE) {
+            throw new AccessDeniedException("An active account is required");
+        }
+        return user;
+    }
+
+    private UserAccount resolveUser(Actor actor) {
         Objects.requireNonNull(actor, "Authenticated actor is required");
         UserAccount user = users.findById(actor.userId())
                 .orElseThrow(() -> new UserNotFoundException("Authenticated user does not exist"));
         if (!user.id().equals(actor.userId())) {
             throw new UserDirectoryException("Users returned an identity different from the requested user");
-        }
-        if (user.status() != UserAccount.Status.ACTIVE || user.role() != expectedRole) {
-            throw new AccessDeniedException("An active " + expectedRole.name().toLowerCase(Locale.ROOT) + " is required");
         }
         return user;
     }

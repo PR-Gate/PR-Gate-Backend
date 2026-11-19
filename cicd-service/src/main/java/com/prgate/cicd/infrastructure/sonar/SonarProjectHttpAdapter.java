@@ -46,6 +46,10 @@ public class SonarProjectHttpAdapter implements SonarProjectProvisioningPort {
         ensureProjectExists(projectKey, "PRGate local file pilot " + projectKey, "main");
     }
 
+    public void requireExistingProject(String projectKey) {
+        if (!exists(projectKey)) throw new IllegalStateException("Existing Sonar project was not found");
+    }
+
     private void ensureProjectExists(String key, String name, String branch) {
         if (token == null || token.isBlank()) { throw new IllegalStateException("SONAR_TOKEN is not configured"); }
         if (exists(key)) { return; }
@@ -192,7 +196,20 @@ public class SonarProjectHttpAdapter implements SonarProjectProvisioningPort {
                 throw new IllegalStateException("Unexpected Quality Gate identity");
             for (var existing : gate.path("conditions")) {
                 var desired = conditions.stream().filter(c -> c.metric().equals(existing.path("metric").asText()))
-                        .findFirst().orElseThrow(() -> new IllegalStateException("Unexpected Quality Gate condition"));
+                        .findFirst().orElse(null);
+                if (desired == null) {
+                    String metric = existing.path("metric").asText();
+                    if (!existing.path("isCaycCondition").asBoolean()
+                            || !java.util.Set.of("new_security_hotspots_reviewed", "new_duplicated_lines_density",
+                                    "new_coverage", "new_violations").contains(metric)
+                            || existing.path("id").asText().isBlank()) {
+                        throw new IllegalStateException("Unexpected Quality Gate condition");
+                    }
+                    var removed = postForm("/api/qualitygates/delete_condition", "id=" + encode(existing.path("id").asText()));
+                    if (removed.statusCode()<200 || removed.statusCode()>=300)
+                        throw new IllegalStateException("Cannot remove default Quality Gate condition");
+                    continue;
+                }
                 if (!desired.op().equals(existing.path("op").asText())
                         || desired.error().compareTo(new java.math.BigDecimal(existing.path("error").asText()))!=0)
                     throw new IllegalStateException("Quality Gate condition drift");

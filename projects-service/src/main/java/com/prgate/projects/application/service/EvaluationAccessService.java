@@ -30,8 +30,13 @@ public final class EvaluationAccessService {
                 && members.findActive(project.get().getCourseId(), new StudentId(userId))
                 .filter(m -> m.getProjectId().value().equals(projectId)).isPresent();
         return new Access(teacher || member, teacher,
-                teacher || member ? project.get().getGitHubOrganization().map(GitHubOrganization::login).orElse(null) : null);
+                teacher || member ? project.get().getGitHubOrganization().map(GitHubOrganization::login).orElse(null) : null,
+                teacher || member ? course.get().getId().value() : null);
     }
 
-    public record Access(boolean mayRead, boolean mayManage, String organization) { }
+    public record Access(boolean mayRead, boolean mayManage, String organization, UUID courseId) {
+        public Access(boolean mayRead, boolean mayManage, String organization) {
+            this(mayRead, mayManage, organization, null);
+        }
+    }
 }

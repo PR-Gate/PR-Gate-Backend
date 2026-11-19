@@ -1,5 +1,6 @@
 package com.prgate.projects.infrastructure.github;
 
+import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
 import com.prgate.projects.application.exception.GitHubDirectoryException;
 import com.prgate.projects.application.port.out.GitHubOrganizationDirectory;
 import com.prgate.projects.domain.model.valueobject.GitHubOrganization;
@@ -52,5 +53,6 @@ public class HttpGitHubOrganizationDirectory implements GitHubOrganizationDirect
         }
     }
 
+    @JsonIgnoreProperties(ignoreUnknown = true)
     private record OrganizationResponse(Long id, String login, String type) { }
 }

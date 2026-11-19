@@ -42,7 +42,7 @@ public final class GeminiClient {
         this.mapper = mapper;
         var factory = new JdkClientHttpRequestFactory(HttpClient.newBuilder()
                 .connectTimeout(Duration.ofSeconds(10)).build());
-        factory.setReadTimeout(Duration.ofSeconds(60));
+        factory.setReadTimeout(Duration.ofSeconds(110));
         this.client = builder.clone().baseUrl(baseUrl).requestFactory(factory)
                 .defaultHeader("x-goog-api-key", key.strip()).build();
     }

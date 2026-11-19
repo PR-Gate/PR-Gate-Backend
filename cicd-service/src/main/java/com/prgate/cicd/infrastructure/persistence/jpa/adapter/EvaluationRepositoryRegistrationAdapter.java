@@ -6,6 +6,7 @@ import com.prgate.cicd.domain.model.enums.RepositoryProvisioningStatus;
 import com.prgate.cicd.domain.model.valueobject.AcademicProjectId;
 import com.prgate.cicd.domain.model.valueobject.EvaluationRepositoryId;
 import com.prgate.cicd.domain.model.valueobject.GitHubRepository;
+import com.prgate.cicd.domain.model.valueobject.SonarProjectKey;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.stereotype.Repository;
 import org.springframework.transaction.annotation.Transactional;
@@ -34,19 +35,14 @@ public class EvaluationRepositoryRegistrationAdapter implements EvaluationReposi
                 Timestamp.from(repository.getRegisteredAt()), Timestamp.from(repository.getUpdatedAt()));
         return jdbc.queryForObject("""
                 SELECT * FROM cicd.evaluation_repositories WHERE github_repository_id = ?
-                """, (row, index) -> {
-                    EvaluationRepository restored = EvaluationRepository.reconstitute(
+                """, (row, index) -> EvaluationRepository.reconstitute(
                             new EvaluationRepositoryId(row.getObject("id", UUID.class)),
                             new AcademicProjectId(row.getObject("academic_project_id", UUID.class)),
                             new GitHubRepository(row.getLong("github_repository_id"),
                                     row.getString("repository_owner"), row.getString("repository_name")),
                             row.getString("analysis_branch"), row.getTimestamp("registered_at").toInstant(),
                             row.getTimestamp("updated_at").toInstant(),
-                            RepositoryProvisioningStatus.valueOf(row.getString("provisioning_status")));
-                    if (!restored.getSonarProjectKey().value().equals(row.getString("sonar_project_key"))) {
-                        throw new IllegalStateException("Stored Sonar project key does not match repository identity");
-                    }
-                    return restored;
-                }, repository.getGithubRepository().id());
+                            RepositoryProvisioningStatus.valueOf(row.getString("provisioning_status")),
+                            new SonarProjectKey(row.getString("sonar_project_key"))), repository.getGithubRepository().id());
     }
 }

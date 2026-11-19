@@ -6,6 +6,7 @@ import com.prgate.cicd.domain.model.enums.RepositoryProvisioningStatus;
 import com.prgate.cicd.domain.model.valueobject.AcademicProjectId;
 import com.prgate.cicd.domain.model.valueobject.EvaluationRepositoryId;
 import com.prgate.cicd.domain.model.valueobject.GitHubRepository;
+import com.prgate.cicd.domain.model.valueobject.SonarProjectKey;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.stereotype.Repository;
 import org.springframework.transaction.annotation.Transactional;
@@ -38,7 +39,8 @@ public class RepositoryProvisioningStateAdapter implements RepositoryProvisionin
                         new GitHubRepository(row.getLong("github_repository_id"), row.getString("repository_owner"),
                                 row.getString("repository_name")), row.getString("analysis_branch"),
                         row.getTimestamp("registered_at").toInstant(), row.getTimestamp("updated_at").toInstant(),
-                        RepositoryProvisioningStatus.valueOf(row.getString("provisioning_status"))), id.value())
+                        RepositoryProvisioningStatus.valueOf(row.getString("provisioning_status")),
+                        new SonarProjectKey(row.getString("sonar_project_key"))), id.value())
                 .stream().findFirst();
     }
 

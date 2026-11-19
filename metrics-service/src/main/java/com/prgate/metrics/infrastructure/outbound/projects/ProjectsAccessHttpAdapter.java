@@ -26,19 +26,27 @@ public class ProjectsAccessHttpAdapter implements ProjectAccessPort {
         this.baseUrl = baseUrl.replaceAll("/+$", ""); this.token = token; this.json = json;
     }
     public Access check(UUID projectId, UUID actorId) {
+        return lookup(projectId + "/evaluation-access", actorId);
+    }
+    public Access checkCourse(UUID courseId, UUID actorId) {
+        return lookup("catalog/courses/" + courseId + "/access", actorId);
+    }
+    private Access lookup(String path, UUID actorId) {
         if (token.isBlank()) throw new IllegalStateException("Projects service credentials are not configured");
         try {
-            var request = HttpRequest.newBuilder(URI.create(baseUrl + "/internal/v1/projects/" + projectId
-                    + "/evaluation-access?userId=" + actorId)).timeout(Duration.ofSeconds(8))
+            var request = HttpRequest.newBuilder(URI.create(baseUrl + "/internal/v1/projects/" + path
+                    + "?userId=" + actorId)).timeout(Duration.ofSeconds(8))
                     .header("Authorization", "Bearer " + token).GET().build();
             var response = client.send(request, HttpResponse.BodyHandlers.ofString());
+            if (response.statusCode() == 403 || response.statusCode() == 404) return new Access(false, false, null);
             if (response.statusCode() != 200) throw new IllegalStateException("Projects access check unavailable");
             var value = json.readTree(response.body());
             if (!value.path("mayRead").isBoolean() || !value.path("mayManage").isBoolean()) {
                 throw new IllegalStateException("Invalid Projects access response");
             }
             return new Access(value.path("mayRead").asBoolean(), value.path("mayManage").asBoolean(),
-                    value.path("organization").isTextual() ? value.path("organization").asText() : null);
+                    value.path("organization").isTextual() ? value.path("organization").asText() : null,
+                    value.path("courseId").isTextual() ? UUID.fromString(value.path("courseId").asText()) : null);
         } catch (InterruptedException exception) {
             Thread.currentThread().interrupt(); throw new IllegalStateException("Projects access check interrupted");
         } catch (java.io.IOException exception) {
